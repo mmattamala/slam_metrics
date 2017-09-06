@@ -89,7 +89,7 @@ if __name__=="__main__":
     slam_metrics.compute_statistics_absolute(ate_se3_error[3:6,:], variable='rotational')
 
     # RPE (Relative Pose Error)
-    rpe_error, rpe_trans_error, rpe_rot_error = slam_metrics.RPE(gt_pose, est_pose, args.delta, show=True)
+    rpe_error, rpe_trans_error, rpe_rot_error, distance_travelled = slam_metrics.RPE(gt_pose, est_pose, args.delta, show=True)
     slam_metrics.compute_statistics_per_axis(rpe_error)
     slam_metrics.compute_statistics_absolute(rpe_error[0:3,:], variable='translational')
     slam_metrics.compute_statistics_absolute(rpe_error[3:6,:], variable='rotational')

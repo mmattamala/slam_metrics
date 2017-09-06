@@ -58,20 +58,20 @@ def compute_statistics_absolute(err, show=True, variable='translational'):
 
     (M,N) = err.shape
 
-    trans_error = np.sqrt(np.sum(np.multiply(err,err),0)).A[0]
+    abs_error = np.sqrt(np.sum(np.multiply(err,err),0)).A[0]
 
     # RMSE
-    stats['rmse'] = np.sqrt(np.dot(trans_error,trans_error) / len(trans_error))
+    stats['rmse'] = np.sqrt(np.dot(abs_error,abs_error) / len(abs_error))
     # Mean
-    stats['mean'] = np.mean(trans_error)
+    stats['mean'] = np.mean(abs_error)
     # Standard Deviation
-    stats['std']  = np.std(trans_error)
+    stats['std']  = np.std(abs_error)
     # Median
-    stats['median'] = np.median(trans_error)
+    stats['median'] = np.median(abs_error)
     # Min
-    stats['min'] = np.min(trans_error)
+    stats['min'] = np.min(abs_error)
     # Max
-    stats['max'] = np.max(trans_error)
+    stats['max'] = np.max(abs_error)
 
     if show:
         for key in stats:
@@ -242,15 +242,18 @@ def RPE(traj_gt, traj_est, delta, param_max_pairs=10000, param_fixed_delta=False
            abs(stamp_gt_1 - (stamp_est_1 + param_offset)) > gt_max_time_difference):
             continue
 
-        error44 = tum_utils.transform_diff(  tum_utils.scale(
-                           tum_utils.transform_diff( traj_est[stamp_est_1], traj_est[stamp_est_0] ), param_scale),
-                           tum_utils.transform_diff( traj_gt[stamp_gt_1], traj_gt[stamp_gt_0] ) )
+        gt_delta = tum_utils.transform_diff( traj_gt[stamp_gt_1], traj_gt[stamp_gt_0])
+        est_delta = tum_utils.transform_diff( traj_est[stamp_est_1], traj_est[stamp_est_0] )
+        error44 = tum_utils.transform_diff(  tum_utils.scale( est_delta, param_scale), gt_delta)
+
+        gt_distance_travelled = tum_utils.compute_distance(error44)
+
         diff_pose.append(error44)
 
         trans = tum_utils.compute_distance(error44)
         rot = tum_utils.compute_angle(error44)
 
-        result.append([stamp_est_0,stamp_est_1,stamp_gt_0,stamp_gt_1,trans,rot])
+        result.append([stamp_est_0,stamp_est_1,stamp_gt_0,stamp_gt_1,trans,rot, gt_distance_travelled])
 
     if len(result)<2:
         raise Exception("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory!")
@@ -258,7 +261,22 @@ def RPE(traj_gt, traj_est, delta, param_max_pairs=10000, param_fixed_delta=False
     stamps = np.array(result)[:,0]
     trans_error = np.array(result)[:,4]
     rot_error = np.array(result)[:,5]
+    distance_travelled = np.array(result)[:,6]
 
     errors = np.matrix([SE3Lib.TranToVec(dT) for dT in diff_pose]).transpose()
 
-    return errors, trans_error, rot_error
+    return errors, trans_error, rot_error, distance_travelled
+
+def DDT(rpe, distance_travelled):
+        """
+        This method computes the Drift Per Distance Travelled (DDT)
+        Ref: Scona et al. (2017)
+
+        Input:
+        rpe -- relative pose error of a sequence
+        distance_travelled -- magnitude of the distance travelled
+
+        Output:
+        list of compared poses and the resulting translation and rotation error
+        """
+        #TODO
