@@ -89,7 +89,7 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02):
     potential_matches = [(abs(a - (b + offset)), a, b)
                          for a in first_keys
                          for b in second_keys
-                         if abs(a - (b + offset)) < max_difference]
+                         if (abs(a - (b + offset)) < max_difference)]
     potential_matches.sort()
     matches = []
     for diff, a, b in potential_matches:
@@ -99,6 +99,7 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02):
             matches.append((a, b))
 
     matches.sort()
+
     return matches
 
 def find_closest_index(L,t):
@@ -194,50 +195,6 @@ def transform_diff(a,b):
     Relative 3D transformation from a to b.
     """
     return np.dot(np.linalg.inv(a),b)
-
-def pointquat_to_transform(*args):
-    """
-    Generate a 4x4 homogeneous transformation matrix from a 3D point and unit quaternion.
-
-    Input:
-    l -- tuple consisting of (tx,ty,tz,qx,qy,qz,qw) where
-         (tx,ty,tz) is the 3D position and (qx,qy,qz,qw) is the unit quaternion.
-
-    Output:
-    matrix -- 4x4 homogeneous transformation matrix
-    """
-    print(args)
-
-    # we create a quaternion and translation depending on the input
-    if len(args) == 1:
-        if len(args[0]) == 8:    # (stamp,tx,ty,tz,qx,qy,qz,qw)
-            t = l[1:4]
-            q = np.array(l[4:8], dtype=np.float64, copy=True)
-        elif len(args[0] == 7):   # (tx,ty,tz,qx,qy,qz,qw)
-            t = l[0:3]
-            q = np.array(l[3:7], dtype=np.float64, copy=True)
-    elif len(args) == 7:
-        t = [args[0],args[1],args[2]]
-        q = q = np.array([args[3],args[4],args[5],args[6]], dtype=np.float64, copy=True)
-
-    # create the 4x4 transformation matrix
-    nq = np.dot(q, q)
-    if nq < _EPS:
-        return np.array((
-        (                1.0,                 0.0,                 0.0, t[0])
-        (                0.0,                 1.0,                 0.0, t[1])
-        (                0.0,                 0.0,                 1.0, t[2])
-        (                0.0,                 0.0,                 0.0, 1.0)
-        ), dtype=np.float64)
-    q *= np.sqrt(2.0 / nq)
-    q = np.outer(q, q)
-
-    return np.array((
-        (1.0-q[1, 1]-q[2, 2],     q[0, 1]-q[2, 3],     q[0, 2]+q[1, 3], t[0]),
-        (    q[0, 1]+q[2, 3], 1.0-q[0, 0]-q[2, 2],     q[1, 2]-q[0, 3], t[1]),
-        (    q[0, 2]-q[1, 3],     q[1, 2]+q[0, 3], 1.0-q[0, 0]-q[1, 1], t[2]),
-        (                0.0,                 0.0,                 0.0, 1.0)
-        ), dtype=np.float64)
 
 def transform44(l):
     """

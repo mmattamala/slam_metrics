@@ -10,7 +10,7 @@ import numpy as np
 import SE3UncertaintyLib as SE3Lib
 import tum_utils
 
-def compute_statistics_per_axis(err, show=True):
+def compute_statistics_per_axis(err, show=True, verbose=True):
     """
     Computes the mean, RMSE, standard deviation, median, min and max
 
@@ -24,19 +24,20 @@ def compute_statistics_per_axis(err, show=True):
     units = ['m', 'm', 'm', 'rad', 'rad', 'rad']
 
     (M,N) = err.shape
+    abs_err = np.fabs(err)
 
     # RMSE
-    stats['rmse'] = np.sqrt(np.sum(np.multiply(err, err), axis=1) / N)
+    stats['rmse'] = np.sqrt(np.sum(np.multiply(abs_err, abs_err), axis=1) / N)
     # Mean
-    stats['mean'] = np.mean(err, axis=1) # computed by column
+    stats['mean'] = np.mean(abs_err, axis=1) # computed by column
     # Standard Deviation
-    stats['std']  = np.std(err, axis=1) # computed by column
+    stats['std']  = np.std(abs_err, axis=1) # computed by column
     # Median
-    stats['median'] = np.median(err, axis=1) # computed by column
+    stats['median'] = np.median(abs_err, axis=1) # computed by column
     # Min
-    stats['min'] = np.min(np.fabs(err), axis=1) # computed by column
+    stats['min'] = np.min(np.fabs(abs_err), axis=1) # computed by column
     # Max
-    stats['max'] = np.max(err, axis=1) # computed by column
+    stats['max'] = np.max(abs_err, axis=1) # computed by column
 
     if show:
         for key in stats:
