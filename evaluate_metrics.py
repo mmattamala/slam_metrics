@@ -27,8 +27,8 @@ if __name__=="__main__":
     parser.add_argument('--max_difference', help='maximally allowed time difference for matching entries (default: 0.02)',default=0.02)
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'s\')',default='s')
-    parser.add_argument('--compute_metrics', help='shows the results of metrics (options: True or False; default: True)', default=False)
-    parser.add_argument('--show_plots', help='shows the trajectory plots (options: True or False; default: True)', default=True)
+    parser.add_argument('--compute_metrics', help='shows the results of metrics', action='store_true')
+    parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
     #parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
@@ -103,10 +103,13 @@ if __name__=="__main__":
         slam_metrics.compute_statistics_absolute(ate_se3_error[3:6,:], variable='rotational')
 
         # RPE (Relative Pose Error)
-        rpe_error, rpe_trans_error, rpe_rot_error, distance_travelled = slam_metrics.RPE(gt_pose, est_pose, args.delta, show=True)
+        rpe_error, rpe_ddt, rpe_trans_error, rpe_rot_error, distance_travelled = slam_metrics.RPE(gt_pose, est_pose, param_delta=float(args.delta), param_delta_unit=args.delta_unit, show=True)
         #slam_metrics.compute_statistics_per_axis(rpe_error)
         slam_metrics.compute_statistics_absolute(rpe_error[0:3,:], variable='translational')
         slam_metrics.compute_statistics_absolute(rpe_error[3:6,:], variable='rotational')
+        print('\nDrift per Distance Travelled - xyz/m')
+        slam_metrics.compute_statistics_absolute(rpe_ddt[0:3,:], variable='translational')
+        slam_metrics.compute_statistics_absolute(rpe_ddt[3:6,:], variable='rotational')
 
     if(args.show_plots):
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz, title='XYZ Trajectory')
