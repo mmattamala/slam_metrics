@@ -30,7 +30,7 @@ if __name__=="__main__":
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'s\')',default='s')
 
-    parser.add_argument('--compute_metrics', help='shows the results of metrics', action='store_true')
+    parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
 
@@ -61,9 +61,6 @@ if __name__=="__main__":
     if(len(matches)<2):
         sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
 
-    #print(gt_list)
-    #print(est_list)
-
     # generate poses as a N x 4x4 dict
     gt_pose  = dict( [ (a,tum_utils.transform44(np.array(gt_list[a][0:7]))) for a,b in matches ] )
     est_pose = dict( [ (b,tum_utils.transform44(np.array(est_list[b][0:7]))) for a,b in matches ] )
@@ -72,9 +69,6 @@ if __name__=="__main__":
     # generate positions as a 3 x N matrix, where N is the number of poses
     gt_xyz  = np.matrix([[float(value) for value in gt_list[a][0:3]] for a,b in matches]).transpose()
     est_xyz = np.matrix([[float(value)*float(args.scale) for value in est_list[b][0:3]] for a,b in matches]).transpose()
-    #gt_xyz  = np.matrix([gt_pose[key][0:3,3] for key in gt_pose]).transpose()
-    #est_xyz = np.matrix([est_pose[key][0:3,3] for key in est_pose]).transpose()
-    #print(gt_xyz)
 
     # generate orientations as a 4 x N matrix
     gt_quat  = np.matrix([[float(value) for value in gt_list[a][3:7]] for a,b in matches]).transpose()
@@ -85,39 +79,46 @@ if __name__=="__main__":
         gt_pose  = dict( [ (a,tum_utils.covariance66(np.array(gt_list[a][7:]))) for a,b in matches ] )
         est_pose = dict( [ (b,tum_utils.covariance66(np.array(est_list[b][7:]))) for a,b in matches ] )
 
-    #print(args.compute_metrics)
-    if(args.compute_metrics == True):
-        # Compute metrics
-        # ATE (Absolute trajectory error)
-        ate_horn_error, ate_horn_rot, ate_horn_trans, ate_horn_scale = slam_metrics.ATE_Horn(gt_xyz, est_xyz, show=True)
-        #slam_metrics.compute_statistics_per_axis(ate_horn_error)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+    # Compute metrics
+    # ATE (Absolute trajectory error)
+    ate_horn_error, ate_horn_rot, ate_horn_trans, ate_horn_scale = slam_metrics.ATE_Horn(gt_xyz,
+                                                                                         est_xyz,
+                                                                                         show=True,
+                                                                                         compute_scale=args.compute_automatic_scale)
+    slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
 
-        # ATE (Absolute trajectory error, SE(3))
-        ate_se3_error = slam_metrics.ATE_SE3(gt_pose, est_pose, matches=matches, show=True)
-        #slam_metrics.compute_statistics_per_axis(ate_se3_error)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+    # if the flag for automatic scale computation is enabled, overwrite args.scale
+    if args.compute_automatic_scale:
+        args.scale = ate_horn_scale
 
-        # RPE (Relative Pose Error)
-        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_pose,
-                                                                   est_pose,
-                                                                   param_max_pairs=int(args.max_pairs),
-                                                                   param_fixed_delta=args.fixed_delta,
-                                                                   param_delta=float(args.delta),
-                                                                   param_delta_unit=args.delta_unit,
-                                                                   param_offset=float(args.offset),
-                                                                   param_scale=float(args.scale))
+    # ATE (Absolute trajectory error, SE(3))
+    ate_se3_error = slam_metrics.ATE_SE3(gt_pose,
+                                         est_pose,
+                                         matches=matches,
+                                         show=True,
+                                         scale=float(args.scale),
+                                         offset=float(args.offset),
+                                         max_difference=float(args.max_difference))
+    slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+    slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
-        ddt = np.divide(rpe_error, rpe_distance)
+    # RPE (Relative Pose Error)
+    rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_pose,
+                                                               est_pose,
+                                                               param_max_pairs=int(args.max_pairs),
+                                                               param_fixed_delta=args.fixed_delta,
+                                                               param_delta=float(args.delta),
+                                                               param_delta_unit=args.delta_unit,
+                                                               param_offset=float(args.offset),
+                                                               param_scale=float(args.scale))
 
-        #slam_metrics.compute_statistics_per_axis(rpe_error)
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+    slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+    slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
-        print('\nDDT')
-        slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+    print('\nDDT')
+    ddt = np.divide(rpe_error, rpe_distance)
+    slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+    slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
 
     if(args.show_plots):

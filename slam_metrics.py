@@ -59,7 +59,7 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         return stats
 
 
-def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_difference=0.02):
+def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_difference=0.02, scale=1.0):
     """
     This method computes the Absolute Trajectory Error (ATE)
     Ref: Sturm et al. (2012)
@@ -72,11 +72,11 @@ def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_differen
         print('\nATE: Absolute Trajectory Error, SE(3) error')
 
     if matches is None:
-        matches = tum_utils.associate(traj_gt, traj_est)
+        matches = tum_utils.associate(traj_gt, traj_est, offset=offset, max_difference=max_difference)
         if len(matches)<2:
             sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
 
-    errors = np.matrix([SE3Lib.TranToVec(tum_utils.transform_diff(traj_gt[a], traj_est[b])) for a,b in matches]).transpose()
+    errors = np.matrix([SE3Lib.TranToVec(tum_utils.transform_diff(traj_gt[a], tum_utils.scale(traj_est[b], scale))) for a,b in matches]).transpose()
 
     return errors
 
