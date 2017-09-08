@@ -41,19 +41,19 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
             for key in stats:
                 if variable == 'Rotational':
                     if use_deg:
-                        print(' %s  %s: %f deg' % (variable, key, tum_utils.rad_to_deg(stats[key])))
+                        print(' %s %s: %f deg' % (variable, key, tum_utils.rad_to_deg(stats[key])))
                     else:
-                        print(' %s  %s: %f rad' % (variable, key, stats[key]))
+                        print(' %s %s: %f rad' % (variable, key, stats[key]))
                 else:
-                    print(' %s  %s: %f m' % (variable, key, stats[key]))
+                    print(' %s %s: %f m' % (variable, key, stats[key]))
         else:
             if variable == 'Rotational':
                 if use_deg:
-                    print(' %s  rmse: %f deg' % (variable, tum_utils.rad_to_deg(stats['rmse'])))
+                    print(' %s rmse: %f deg' % (variable, tum_utils.rad_to_deg(stats['rmse'])))
                 else:
-                    print(' %s  rmse: %f rad' % (variable, stats['rmse']))
+                    print(' %s rmse: %f rad' % (variable, stats['rmse']))
             else:
-                print(' %s  rmse: %f m' % (variable, stats['rmse']))
+                print(' %s rmse: %f m' % (variable, stats['rmse']))
 
 
         return stats
@@ -249,4 +249,4 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
     errors = np.matrix([SE3Lib.TranToVec(dT) for dT in diff_pose]).transpose()
 
 
-    return errors, trans_error, rot_error
+    return errors, trans_error, rot_error, gt_distance_travelled

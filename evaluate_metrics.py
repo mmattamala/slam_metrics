@@ -32,11 +32,11 @@ if __name__=="__main__":
 
     parser.add_argument('--compute_metrics', help='shows the results of metrics', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
+    parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
 
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
     #parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
-    #parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute translational error in meters after alignment will be printed)', action='store_true')
     args = parser.parse_args()
 
     # read files in TUM format or TUM modified format (with covariances)
@@ -96,11 +96,11 @@ if __name__=="__main__":
         # ATE (Absolute trajectory error, SE(3))
         ate_se3_error = slam_metrics.ATE_SE3(gt_pose, est_pose, matches=matches, show=True)
         #slam_metrics.compute_statistics_per_axis(ate_se3_error)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
         # RPE (Relative Pose Error)
-        rpe_error, rpe_trans_error, rpe_rot_error = slam_metrics.RPE(gt_pose,
+        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_pose,
                                                                    est_pose,
                                                                    param_max_pairs=int(args.max_pairs),
                                                                    param_fixed_delta=args.fixed_delta,
@@ -109,9 +109,15 @@ if __name__=="__main__":
                                                                    param_offset=float(args.offset),
                                                                    param_scale=float(args.scale))
 
+        ddt = np.divide(rpe_error, rpe_distance)
+
         #slam_metrics.compute_statistics_per_axis(rpe_error)
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational')
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational')
+        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+
+        print('\nDDT')
+        slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
 
     if(args.show_plots):
