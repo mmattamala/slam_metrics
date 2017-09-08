@@ -6,92 +6,57 @@ Implementation of main metrics used in Visual SLAM
 '''
 
 import random
+import math
 import numpy as np
 import SE3UncertaintyLib as SE3Lib
 import tum_utils
 
-def compute_statistics_per_axis(err, show=True, verbose=False):
-    """
-    Computes the mean, RMSE, standard deviation, median, min and max
+def compute_statistics(err, verbose=False, variable='Translational', use_deg=True):
+        """
+        Computes the mean, RMSE, standard deviation, median, min and max from a vector of errors
 
-    @param err: a MxN np array.
-    M is the number of components by sample (M=3 if SO(3), M=6 if SE(3)). N is the number of samples.
+        @param err: a MxN np array.
+        M is the number of components by sample (M=3 if SO(3), M=6 if SE(3)). N is the number of samples.
 
-    """
-    stats = {}
+        """
+        stats = {}
 
-    dimensions = ['x', 'y', 'z', 'roll', 'pitch', 'yaw']
-    units = ['m', 'm', 'm', 'rad', 'rad', 'rad']
+        abs_err = np.fabs(err)
 
-    (M,N) = err.shape
-    abs_err = np.fabs(err)
+        # RMSE
+        stats['rmse'] = np.sqrt(np.dot(abs_err, abs_err) / len(abs_err))
+        # Mean
+        stats['mean'] = np.mean(abs_err) # computed by column
+        # Standard Deviation
+        stats['std']  = np.std(abs_err) # computed by column
+        # Median
+        stats['median'] = np.median(abs_err) # computed by column
+        # Min
+        stats['min'] = np.min(np.fabs(abs_err)) # computed by column
+        # Max
+        stats['max'] = np.max(abs_err) # computed by column
 
-    # RMSE
-    stats['rmse'] = np.sqrt(np.sum(np.multiply(abs_err, abs_err), axis=1) / N)
-    # Mean
-    stats['mean'] = np.mean(abs_err, axis=1) # computed by column
-    # Standard Deviation
-    stats['std']  = np.std(abs_err, axis=1) # computed by column
-    # Median
-    stats['median'] = np.median(abs_err, axis=1) # computed by column
-    # Min
-    stats['min'] = np.min(np.fabs(abs_err), axis=1) # computed by column
-    # Max
-    stats['max'] = np.max(abs_err, axis=1) # computed by column
-
-    if show:
-        if verbose:
-            for key in stats:
-                print(key)
-                for dim,err,unit in zip(dimensions, stats[key], units):
-                    print('   %s-axis: %f [%s]' % (dim, err, unit))
-        else:
-            print('RMSE:')
-            for dim,err,unit in zip(dimensions, stats['rmse'], units):
-                print('   %s-axis: %f [%s]' % (dim, err, unit))
-
-
-    return stats
-
-def compute_statistics_absolute(err, show=True, variable='translational', verbose=False):
-    """
-    Computes the mean, RMSE, standard deviation, median, min and max
-
-    @param err: a MxN np array.
-    M is the number of components by sample (M=3 if SO(3), M=6 if SE(3)). N is the number of samples.
-
-    """
-    stats = {}
-    (M,N) = err.shape
-
-    abs_error = np.sqrt(np.sum(np.multiply(err,err),0)).A[0]
-
-    # RMSE
-    stats['rmse'] = np.sqrt(np.dot(abs_error,abs_error) / len(abs_error))
-    # Mean
-    stats['mean'] = np.mean(abs_error)
-    # Standard Deviation
-    stats['std']  = np.std(abs_error)
-    # Median
-    stats['median'] = np.median(abs_error)
-    # Min
-    stats['min'] = np.min(abs_error)
-    # Max
-    stats['max'] = np.max(abs_error)
-
-    if show:
-        if variable == 'translational':
-            unit = 'm'
-        else:
-            unit = 'rad'
 
         if verbose:
             for key in stats:
-                print('absolute %s error: %s: %f [%s]' % (variable, key, stats[key], unit))
+                if variable == 'Rotational':
+                    if use_deg:
+                        print(' %s  %s: %f deg' % (variable, key, tum_utils.rad_to_deg(stats[key])))
+                    else:
+                        print(' %s  %s: %f rad' % (variable, key, stats[key]))
+                else:
+                    print(' %s  %s: %f m' % (variable, key, stats[key]))
         else:
-            print('absolute %s error: RMSE: %f [%s]' % (variable, stats['rmse'], unit))
+            if variable == 'Rotational':
+                if use_deg:
+                    print(' %s  rmse: %f deg' % (variable, tum_utils.rad_to_deg(stats['rmse'])))
+                else:
+                    print(' %s  rmse: %f rad' % (variable, stats['rmse']))
+            else:
+                print(' %s  rmse: %f m' % (variable, stats['rmse']))
 
-    return stats
+
+        return stats
 
 
 def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_difference=0.02):
@@ -169,7 +134,7 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False, show=True):
 
     return alignment_error, rot, trans, s
 
-def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param_delta=1.00, param_delta_unit="s", param_offset=0.00, param_scale=1.00, show=True):
+def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param_delta=1.00, param_delta_unit="m", param_offset=0.00, param_scale=1.00, show=True):
     """
     This method computes the Relative Pose Error (RPE) and Drift Per Distance Travelled (DDT)
     Ref: Sturm et al. (2012), Scona et al. (2017)
@@ -195,7 +160,10 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
     """
 
     if show:
-        print('\nRPE: Relative Pose Error, delta=%f [%s]' % (param_delta, param_delta_unit))
+        if param_fixed_delta:
+            print('\nRPE: Relative Pose Error, delta=%f [%s]' % (param_delta, param_delta_unit))
+        else:
+            print('\nRPE: Relative Pose Error with respect to %s' % param_delta_unit)
 
     stamps_gt = list(traj_gt.keys())
     stamps_est = list(traj_est.keys())
@@ -261,13 +229,15 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
         error44 = tum_utils.transform_diff(  tum_utils.scale( est_delta, param_scale), gt_delta)
 
         gt_distance_travelled = tum_utils.compute_distance(gt_delta)
+        # check if the distance is not nan or inf
+        gt_distance_travelled = gt_distance_travelled if (not 0) else tum_utils._EPS
 
         diff_pose.append(error44)
 
         trans = tum_utils.compute_distance(error44)
         rot = tum_utils.compute_angle(error44)
 
-        result.append([stamp_est_0, stamp_est_1, stamp_gt_0, stamp_gt_1, trans, rot, gt_distance_travelled])
+        result.append([stamp_est_0, stamp_est_1, stamp_gt_0, stamp_gt_1, trans, rot])
 
     if len(result)<2:
         raise Exception("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory!")
@@ -275,31 +245,8 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
     stamps = np.array(result)[:,0]
     trans_error = np.array(result)[:,4]
     rot_error = np.array(result)[:,5]
-    distance_travelled = np.array(result)[:,6]
 
     errors = np.matrix([SE3Lib.TranToVec(dT) for dT in diff_pose]).transpose()
 
-    # compute Drift per Distance Travelled (DDT). Ref: Scona et al. (2017)
-    errors_ddt = np.divide(errors, distance_travelled, dtype=np.float64)
 
-    #np.set_printoptions(threshold=np.nan)
-    #print(errors_ddt)
-
-    #for i in range(len(pairs)):
-     #   print('%f / %f = %f' % (errors[0,i], distance_travelled[i], errors_ddt[0,i]))
-
-    return errors, errors_ddt, trans_error, rot_error, distance_travelled
-
-def DDT(rpe, distance_travelled):
-        """
-        This method computes the Drift Per Distance Travelled (DDT)
-        Ref: Scona et al. (2017)
-
-        Input:
-        rpe -- relative pose error of a sequence
-        distance_travelled -- magnitude of the distance travelled
-
-        Output:
-        list of compared poses and the resulting translation and rotation error
-        """
-        #TODO
+    return errors, trans_error, rot_error
