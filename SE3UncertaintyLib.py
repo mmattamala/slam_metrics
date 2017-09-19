@@ -574,9 +574,9 @@ def Fusing(Tlist, sigmalist, N = 0, maxiterations=30, retiter=False):
       LHS = LHS + np.dot(invJtS,invJ)
       RHS = RHS + np.dot(invJtS, xik)
     xi = -np.linalg.solve(LHS,RHS)
-    print "xi", xi
+    print("xi", xi)
     T = np.dot(VecToTran(xi),T)
-    print "T", T
+    print("T", T)
     sigma = np.linalg.inv(LHS)
     # How low did the objective function get?
     V = 0.
@@ -602,7 +602,6 @@ def Visualize(Tlist,sigmalist, nsamples = 100):
   import matplotlib.cm as cm
   fig = plt.figure()
   ax = fig.add_subplot(111, projection='3d')
-  cholsigmalist = []
   colors = iter(cm.rainbow(np.linspace(0, 1, len(Tlist))))
   for i in range(len(sigmalist)):
     color = next(colors)
@@ -615,10 +614,10 @@ def Visualize(Tlist,sigmalist, nsamples = 100):
       Tsample = np.dot(VecToTran(vecsample), Tlist[i])
       ax.scatter(Tsample[0,3],Tsample[1,3],Tsample[2,3], c = color)
 
-  ax.set_autoscaley_on(False)
-  ax.set_xlim([-0.5, 0.5])
-  ax.set_ylim([-0.5, 0.5])
-  ax.set_zlim([-0.5, 0.5])
+  ax.set_autoscaley_on(True)
+  #ax.set_xlim([-0.5, 0.5])
+  #ax.set_ylim([-0.5, 0.5])
+  #ax.set_zlim([-0.5, 0.5])
   ax.set_xlabel('X Label')
   ax.set_ylabel('Y Label')
   ax.set_zlabel('Z Label')

@@ -61,8 +61,8 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
 
 def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_difference=0.02, scale=1.0):
     """
-    This method computes the Absolute Trajectory Error (ATE)
-    Ref: Sturm et al. (2012)
+    This method computes the Absolute Trajectory Error (ATE) on the manifold
+    Ref: Salas et al. (2015)
 
     @param estimated: a dictionary of matrices representing estimated poses
     @param ground_truth: a dictionary with real poses

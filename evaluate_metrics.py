@@ -77,8 +77,8 @@ if __name__=="__main__":
 
     # if available, generate covariances as N x 6x6 dict
     if(dataset_format == 'TUM_mod'):
-        gt_pose  = dict( [ (a,tum_utils.covariance66(np.array(gt_list[a][7:]))) for a,b in matches ] )
-        est_pose = dict( [ (b,tum_utils.covariance66(np.array(est_list[b][7:]))) for a,b in matches ] )
+        gt_cov  = dict( [ (a,tum_utils.covariance66(np.array(gt_list[a][7:]))) for a,b in matches ] )
+        est_cov = dict( [ (b,tum_utils.covariance66(np.array(est_list[b][7:]))) for a,b in matches ] )
 
     if(not args.not_compute_metrics):
         # Compute metrics
