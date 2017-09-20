@@ -9,7 +9,7 @@ import random
 import math
 import numpy as np
 import SE3UncertaintyLib as SE3Lib
-import tum_utils
+import utils
 
 def compute_statistics(err, verbose=False, variable='Translational', use_deg=True):
         """
@@ -41,7 +41,7 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
             for key in stats:
                 if variable == 'Rotational':
                     if use_deg:
-                        print(' %s %s: %f deg' % (variable, key, tum_utils.rad_to_deg(stats[key])))
+                        print(' %s %s: %f deg' % (variable, key, utils.rad_to_deg(stats[key])))
                     else:
                         print(' %s %s: %f rad' % (variable, key, stats[key]))
                 else:
@@ -49,7 +49,7 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         else:
             if variable == 'Rotational':
                 if use_deg:
-                    print(' %s rmse: %f deg' % (variable, tum_utils.rad_to_deg(stats['rmse'])))
+                    print(' %s rmse: %f deg' % (variable, utils.rad_to_deg(stats['rmse'])))
                 else:
                     print(' %s rmse: %f rad' % (variable, stats['rmse']))
             else:
@@ -59,7 +59,7 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         return stats
 
 
-def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_difference=0.02, scale=1.0):
+def ATE_SE3(traj_gt, traj_est, offset=0.0, max_difference=0.02, scale=1.0):
     """
     This method computes the Absolute Trajectory Error (ATE) on the manifold
     Ref: Salas et al. (2015)
@@ -68,19 +68,14 @@ def ATE_SE3(traj_gt, traj_est, show=True, matches=None, offset=0.0, max_differen
     @param ground_truth: a dictionary with real poses
 
     """
-    if show:
-        print('\nATE: Absolute Trajectory Error, SE(3) error')
 
-    if matches is None:
-        matches = tum_utils.associate(traj_gt, traj_est, offset=offset, max_difference=max_difference)
-        if len(matches)<2:
-            sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
-
-    errors = np.matrix([SE3Lib.TranToVec(tum_utils.transform_diff(traj_gt[a], tum_utils.scale(traj_est[b], scale))) for a,b in matches]).transpose()
+    # compute errors
+    errors = np.matrix([SE3Lib.TranToVec(utils.transform_diff(traj_gt[a], traj_est[b])) for a,b in zip(traj_gt, traj_est)]).transpose()
 
     return errors
 
-def ATE_Horn(traj_gt, traj_est, compute_scale=False, show=True):
+
+def ATE_Horn(traj_gt, traj_est, compute_scale=False):
     """Align two trajectories using the method of Horn (closed-form).
     It includes the automatic scale recovery modification by Raul Mur-Artal
 
@@ -95,9 +90,19 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False, show=True):
 
     """
 
-    if show:
-        print('\nATE: Absolute Trajectory Error - Horn alignment')
+    #for a in traj_gt:
+    #    print(traj_est[a][0:3,3])
+    #    print(traj_gt[a][0:3,3])
 
+
+    # recover a list with the translations only
+    gt_xyz  = np.matrix([traj_gt[a][0:3,3] for a in traj_gt]).transpose()
+    est_xyz  = np.matrix([traj_est[a][0:3,3] for a in traj_est]).transpose()
+
+
+    return gt_xyz - est_xyz
+
+    """
     #np.set_printoptions(precision=3,suppress=True)
     traj_gt_zerocentered = traj_gt - traj_gt.mean(1)
     traj_est_zerocentered = traj_est - traj_est.mean(1)
@@ -118,10 +123,9 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False, show=True):
         norms = 0.0
 
         for column in range(traj_est_zerocentered.shape[1]):
-    	    dots += np.dot(traj_est_zerocentered[:,column].transpose(),rottraj_gt[:,column])
+            dots += np.dot(traj_est_zerocentered[:,column].transpose(),rottraj_gt[:,column])
             normi = np.linalg.norm(traj_gt_zerocentered[:,column])
             norms += normi*normi
-
         s = float(dots/norms)
 
     #print "scale: %f " % s
@@ -133,8 +137,9 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False, show=True):
     #trans_error = np.sqrt(np.sum(np.multiply(alignment_error,alignment_error),0)).A[0]
 
     return alignment_error, rot, trans, s
+    """
 
-def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param_delta=1.00, param_delta_unit="m", param_offset=0.00, param_scale=1.00, show=True):
+def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param_delta=1.00, param_delta_unit="m", param_offset=0.00):
     """
     This method computes the Relative Pose Error (RPE) and Drift Per Distance Travelled (DDT)
     Ref: Sturm et al. (2012), Scona et al. (2017)
@@ -159,12 +164,6 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
     list of compared poses and the resulting translation and rotation error
     """
 
-    if show:
-        if param_fixed_delta:
-            print('\nRPE: Relative Pose Error, delta=%f [%s]' % (param_delta, param_delta_unit))
-        else:
-            print('\nRPE: Relative Pose Error with respect to %s' % param_delta_unit)
-
     stamps_gt = list(traj_gt.keys())
     stamps_est = list(traj_est.keys())
     stamps_gt.sort()
@@ -172,9 +171,9 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
 
     stamps_est_return = []
     for t_est in stamps_est:
-        t_gt = stamps_gt[tum_utils.find_closest_index(stamps_gt,t_est + param_offset)]
-        t_est_return = stamps_est[tum_utils.find_closest_index(stamps_est,t_gt - param_offset)]
-        t_gt_return = stamps_gt[tum_utils.find_closest_index(stamps_gt,t_est_return + param_offset)]
+        t_gt = stamps_gt[utils.find_closest_index(stamps_gt,t_est + param_offset)]
+        t_est_return = stamps_est[utils.find_closest_index(stamps_est,t_gt - param_offset)]
+        t_gt_return = stamps_gt[utils.find_closest_index(stamps_gt,t_est_return + param_offset)]
         if not t_est_return in stamps_est_return:
             stamps_est_return.append(t_est_return)
     if(len(stamps_est_return)<2):
@@ -184,11 +183,11 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
         index_est = list(traj_est.keys())
         index_est.sort()
     elif param_delta_unit=="m":
-        index_est = tum_utils.distances_along_trajectory(traj_est)
+        index_est = utils.distances_along_trajectory(traj_est)
     elif param_delta_unit=="rad":
-        index_est = tum_utils.rotations_along_trajectory(traj_est,1)
+        index_est = utils.rotations_along_trajectory(traj_est,1)
     elif param_delta_unit=="deg":
-        index_est = tum_utils.rotations_along_trajectory(traj_est,180/np.pi)
+        index_est = utils.rotations_along_trajectory(traj_est,180/np.pi)
     elif param_delta_unit=="f":
         index_est = range(len(traj_est))
     else:
@@ -202,7 +201,7 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
     else:
         pairs = []
         for i in range(len(traj_est)):
-            j = tum_utils.find_closest_index(index_est,index_est[i] + param_delta)
+            j = utils.find_closest_index(index_est,index_est[i] + param_delta)
             if j!=len(traj_est)-1:
                 pairs.append((i,j))
         if(param_max_pairs!=0 and len(pairs)>param_max_pairs):
@@ -217,25 +216,25 @@ def RPE(traj_gt, traj_est, param_max_pairs=10000, param_fixed_delta=False, param
         stamp_est_0 = stamps_est[i]
         stamp_est_1 = stamps_est[j]
 
-        stamp_gt_0 = stamps_gt[ tum_utils.find_closest_index(stamps_gt,stamp_est_0 + param_offset) ]
-        stamp_gt_1 = stamps_gt[ tum_utils.find_closest_index(stamps_gt,stamp_est_1 + param_offset) ]
+        stamp_gt_0 = stamps_gt[ utils.find_closest_index(stamps_gt,stamp_est_0 + param_offset) ]
+        stamp_gt_1 = stamps_gt[ utils.find_closest_index(stamps_gt,stamp_est_1 + param_offset) ]
 
         if(abs(stamp_gt_0 - (stamp_est_0 + param_offset)) > gt_max_time_difference  or
            abs(stamp_gt_1 - (stamp_est_1 + param_offset)) > gt_max_time_difference):
             continue
 
-        gt_delta = tum_utils.transform_diff( traj_gt[stamp_gt_1], traj_gt[stamp_gt_0])
-        est_delta = tum_utils.transform_diff( traj_est[stamp_est_1], traj_est[stamp_est_0] )
-        error44 = tum_utils.transform_diff(  tum_utils.scale( est_delta, param_scale), gt_delta)
+        gt_delta = utils.transform_diff( traj_gt[stamp_gt_1], traj_gt[stamp_gt_0])
+        est_delta = utils.transform_diff( traj_est[stamp_est_1], traj_est[stamp_est_0] )
+        error44 = utils.transform_diff( est_delta, gt_delta)
 
-        gt_distance_travelled = tum_utils.compute_distance(gt_delta)
+        gt_distance_travelled = utils.compute_distance(gt_delta)
         # check if the distance is not nan or inf
-        gt_distance_travelled = gt_distance_travelled if (not 0) else tum_utils._EPS
+        gt_distance_travelled = gt_distance_travelled if (not 0) else utils._EPS
 
         diff_pose.append(error44)
 
-        trans = tum_utils.compute_distance(error44)
-        rot = tum_utils.compute_angle(error44)
+        trans = utils.compute_distance(error44)
+        rot = utils.compute_angle(error44)
 
         result.append([stamp_est_0, stamp_est_1, stamp_gt_0, stamp_gt_1, trans, rot])
 

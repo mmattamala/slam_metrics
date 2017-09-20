@@ -10,9 +10,10 @@ It is based on the TUM scripts
 import sys
 import numpy as np
 import argparse
-import tum_utils
+import utils
 import plot_utils
 import slam_metrics
+import SE3UncertaintyLib as SE3Lib
 
 if __name__=="__main__":
     # parse command line
@@ -29,10 +30,11 @@ if __name__=="__main__":
     parser.add_argument('--fixed_delta', help='only consider pose pairs that have a distance of delta delta_unit (e.g., for evaluating the drift per second/meter/radian)', action='store_true')
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'m\')',default='m')
+    parser.add_argument('--alignment', help='type of trajectory alignment (options: \'man\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
 
     parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
-    parser.add_argument('--not_compute_metrics', help='not computes the metrics, mainly used during plotting only', action='store_true')
+    parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
 
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
@@ -41,78 +43,62 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     # read files in TUM format or TUM modified format (with covariances)
-    gt_list  = tum_utils.read_file_list(args.gt_file)
-    est_list = tum_utils.read_file_list(args.est_file)
+    gt_dict  = utils.read_file_dict(args.gt_file)
+    est_dict = utils.read_file_dict(args.est_file)
 
-    # check file format, we use the first element
-    gt_n_elements = len(gt_list[gt_list.keys()[0]])
-    est_n_elements = len(est_list[est_list.keys()[0]])
+    # check file format
+    gt_format = utils.check_valid_pose_format(gt_dict)
+    est_format = utils.check_valid_pose_format(est_dict)
 
-    if(gt_n_elements != est_n_elements):
-        sys.exit("The format of both files is different, please check the input files")
-    if gt_n_elements == 7:
-        dataset_format = 'TUM'
-    elif gt_n_elements == 28:
-        dataset_format = 'TUM_mod'
-    else:
-        sys.exit("The format of files don't match any supported, please check the input files")
+    # generate poses
+    gt_poses, gt_cov = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
+    est_poses, est_cov = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+
+    #for key in est_poses:
+    #    print(est_poses[key][0:3,3])
+
+    # apply scale
+    gt_poses  = utils.scale_dict(gt_poses, scale_factor=1)
+    gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
+    est_poses = utils.scale_dict(est_poses, scale_factor=1)
+    est_cov   = utils.scale_dict(est_cov, scale_factor=1, is_cov=True)
 
     # associate sequences according to timestamps
-    matches = tum_utils.associate(gt_list, est_list, float(args.offset), float(args.max_difference))
-    if(len(matches)<2):
-        sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
+    gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference))
+    gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference))
 
-    # generate poses as a N x 4x4 dict
-    gt_pose  = dict( [ (a,tum_utils.transform44(np.array(gt_list[a][0:7]))) for a,b in matches ] )
-    est_pose = dict( [ (b,tum_utils.transform44(np.array(est_list[b][0:7]))) for a,b in matches ] )
+    # align poses traj_gt, traj_est, cov_est=None, verbose=False, align_gt=True, return_alignment=True
+    gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
+    gt_poses_align_horn, est_poses_align_horn, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
 
-    # generate numpy arrays for transformations, positions, and orientations
-    # generate positions as a 3 x N matrix, where N is the number of poses
-    gt_xyz  = np.matrix([[float(value) for value in gt_list[a][0:3]] for a,b in matches]).transpose()
-    est_xyz = np.matrix([[float(value)*float(args.scale) for value in est_list[b][0:3]] for a,b in matches]).transpose()
+    #for key in est_poses_align_man:
+    #    print(est_poses_align_man[key][0:3,3])
 
-    # generate orientations as a 4 x N matrix
-    gt_quat  = np.matrix([[float(value) for value in gt_list[a][3:7]] for a,b in matches]).transpose()
-    est_quat = np.matrix([[float(value) for value in est_list[b][3:7]] for a,b in matches]).transpose()
-
-    # if available, generate covariances as N x 6x6 dict
-    if(dataset_format == 'TUM_mod'):
-        gt_cov  = dict( [ (a,tum_utils.covariance66(np.array(gt_list[a][7:]))) for a,b in matches ] )
-        est_cov = dict( [ (b,tum_utils.covariance66(np.array(est_list[b][7:]))) for a,b in matches ] )
-
-    if(not args.not_compute_metrics):
+    if(not args.no_metrics):
         # Compute metrics
         # ATE (Absolute trajectory error)
-        ate_horn_error, ate_horn_rot, ate_horn_trans, ate_horn_scale = slam_metrics.ATE_Horn(gt_xyz,
-                                                                                             est_xyz,
-                                                                                             show=True,
-                                                                                             compute_scale=args.compute_automatic_scale)
+        print('\nATE - Horn')
+        ate_horn_error, ate_horn_rot, ate_horn_trans = slam_metrics.ATE_Horn(gt_poses_align_horn, est_poses_align_horn)
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
 
-        # if the flag for automatic scale computation is enabled, overwrite args.scale
-        if args.compute_automatic_scale:
-            args.scale = ate_horn_scale
-
         # ATE (Absolute trajectory error, SE(3))
-        ate_se3_error = slam_metrics.ATE_SE3(gt_pose,
-                                             est_pose,
-                                             matches=matches,
-                                             show=True,
-                                             scale=float(args.scale),
+        print('\nATE - Manifold')
+        ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align_horn,
+                                             est_poses_align_horn,
                                              offset=float(args.offset),
                                              max_difference=float(args.max_difference))
         slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
         slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
         # RPE (Relative Pose Error)
-        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_pose,
-                                                                   est_pose,
+        print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
+        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align_horn,
+                                                                   est_poses_align_horn,
                                                                    param_max_pairs=int(args.max_pairs),
                                                                    param_fixed_delta=args.fixed_delta,
                                                                    param_delta=float(args.delta),
                                                                    param_delta_unit=args.delta_unit,
-                                                                   param_offset=float(args.offset),
-                                                                   param_scale=float(args.scale))
+                                                                   param_offset=float(args.offset))
 
         slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
         slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
@@ -124,11 +110,31 @@ if __name__=="__main__":
 
 
     if(args.show_plots):
+        gt_data = gt_poses
+        est_data = est_poses
+
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz, title='XYZ Trajectory')
-        gt_stamps = gt_pose.keys()
+        gt_stamps = list(gt_data.keys())
         gt_stamps.sort()
-        est_stamps = est_pose.keys()
+        est_stamps = list(est_data.keys())
         est_stamps.sort()
 
+        gt_t0 = gt_stamps[0]
+        est_t0 = est_stamps[0]
+
+        gt_T0 = np.linalg.inv(gt_data[gt_t0])
+        est_T0 = np.linalg.inv(est_data[est_t0])
+
+        gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
+        est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
+
+        gt_xyz  = np.matrix([gt_data[a][0:3,3] for a in gt_data]).transpose()
+        est_xyz  = np.matrix([est_data[a][0:3,3] for a in est_data]).transpose()
+
+        gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
+        est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
+
         plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz)
+        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
         plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
