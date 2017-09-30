@@ -11,6 +11,15 @@ import numpy as np
 import SE3UncertaintyLib as SE3Lib
 import utils
 
+dimension_map = {'X':   [True, False, False],
+                 'Y':   [False, True, False],
+                 'Z':   [False, False, True],
+                 'XY':  [True, True, False],
+                 'XZ':  [True, False, True],
+                 'YZ':  [False, True, True],
+                 'XYZ': [True, True, True]
+                 }
+
 def compute_statistics(err, verbose=False, variable='Translational', use_deg=True):
         """
         Computes the mean, RMSE, standard deviation, median, min and max from a vector of errors
@@ -22,9 +31,11 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         stats = {}
 
         abs_err = np.fabs(err)
+        #print(abs_err.shape)
 
         # RMSE
         stats['rmse'] = np.sqrt(np.dot(abs_err, abs_err) / len(abs_err))
+        #print(len(abs_err))
         # Mean
         stats['mean'] = np.mean(abs_err) # computed by column
         # Standard Deviation
@@ -75,7 +86,7 @@ def ATE_SE3(traj_gt, traj_est, offset=0.0, max_difference=0.02, scale=1.0):
     return errors
 
 
-def ATE_Horn(traj_gt, traj_est, compute_scale=False):
+def ATE_Horn(traj_gt, traj_est, compute_scale=False, axes='XYZ'):
     """Align two trajectories using the method of Horn (closed-form).
     It includes the automatic scale recovery modification by Raul Mur-Artal
 
@@ -90,15 +101,22 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False):
 
     """
 
+    idx = dimension_map[axes]
+
+    #print(idx)
+
     #for a in traj_gt:
-    #    print(traj_est[a][0:3,3])
-    #    print(traj_gt[a][0:3,3])
+    #    print(traj_est[a])
+    #    print(traj_est[a][idx,3])
+    #    #print(traj_gt[a][0:3,3])
 
 
     # recover a list with the translations only
-    gt_xyz  = np.matrix([traj_gt[a][0:3,3] for a in traj_gt]).transpose()
-    est_xyz  = np.matrix([traj_est[a][0:3,3] for a in traj_est]).transpose()
+    gt_xyz  = np.matrix([traj_gt[a][idx,3] for a in traj_gt]).transpose()
+    est_xyz  = np.matrix([traj_est[a][idx,3] for a in traj_est]).transpose()
+    #print(gt_xyz)
 
+    #print(np.shape(gt_xyz - est_xyz))
 
     return gt_xyz - est_xyz
 

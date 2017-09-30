@@ -67,9 +67,14 @@ if __name__=="__main__":
     gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference))
     gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference))
 
-    # align poses traj_gt, traj_est, cov_est=None, verbose=False, align_gt=True, return_alignment=True
-    gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
-    gt_poses_align_horn, est_poses_align_horn, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
+    # align poses
+    #gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
+    #gt_poses_align_horn, est_poses_align_horn, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
+    gt_poses_align_first, est_poses_align_first = utils.align_trajectories_to_first(gt_poses, est_poses)
+
+    gt_poses_align = gt_poses_align_first
+    est_poses_align = est_poses_align_first
+
 
     #for key in est_poses_align_man:
     #    print(est_poses_align_man[key][0:3,3])
@@ -78,13 +83,27 @@ if __name__=="__main__":
         # Compute metrics
         # ATE (Absolute trajectory error)
         print('\nATE - Horn')
-        ate_horn_error, ate_horn_rot, ate_horn_trans = slam_metrics.ATE_Horn(gt_poses_align_horn, est_poses_align_horn)
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align)
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+
+        print('\nATE - Horn - X')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='X')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+
+        print('\nATE - Horn - Y')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Y')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+
+        print('\nATE - Horn - Z')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Z')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+
+
 
         # ATE (Absolute trajectory error, SE(3))
         print('\nATE - Manifold')
-        ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align_horn,
-                                             est_poses_align_horn,
+        ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align,
+                                             est_poses_align,
                                              offset=float(args.offset),
                                              max_difference=float(args.max_difference))
         slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
@@ -92,8 +111,8 @@ if __name__=="__main__":
 
         # RPE (Relative Pose Error)
         print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
-        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align_horn,
-                                                                   est_poses_align_horn,
+        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align,
+                                                                   est_poses_align,
                                                                    param_max_pairs=int(args.max_pairs),
                                                                    param_fixed_delta=args.fixed_delta,
                                                                    param_delta=float(args.delta),
@@ -110,23 +129,22 @@ if __name__=="__main__":
 
 
     if(args.show_plots):
-        gt_data = gt_poses
-        est_data = est_poses
+        gt_data = gt_poses_align
+        est_data = est_poses_align
 
-        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz, title='XYZ Trajectory')
         gt_stamps = list(gt_data.keys())
         gt_stamps.sort()
         est_stamps = list(est_data.keys())
         est_stamps.sort()
 
-        gt_t0 = gt_stamps[0]
-        est_t0 = est_stamps[0]
+        #gt_t0 = gt_stamps[0]
+        #est_t0 = est_stamps[0]
 
-        gt_T0 = np.linalg.inv(gt_data[gt_t0])
-        est_T0 = np.linalg.inv(est_data[est_t0])
+        #gt_T0 = np.linalg.inv(gt_data[gt_t0])
+        #est_T0 = np.linalg.inv(est_data[est_t0])
 
-        gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
-        est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
+        #gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
+        #est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
 
         gt_xyz  = np.matrix([gt_data[a][0:3,3] for a in gt_data]).transpose()
         est_xyz  = np.matrix([est_data[a][0:3,3] for a in est_data]).transpose()
@@ -135,6 +153,7 @@ if __name__=="__main__":
         est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
 
         plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz)
-        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
-        plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
+        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)

@@ -1,6 +1,8 @@
 # slam_metrics
 Some scripts to calculate metrics used in SLAM. It works in a similar way to Jürgen Sturm's scripts but this unifies both Absolute Trajectory Error (ATE) and Relative Pose Error (RPE), as well as SE(3) ATE and Drift Per Distance Travelled (DDT).
 
+To be used with **Python 3**
+
 ## Usage
 The main file is `evaluate_metrics.py`. To run, you must execute:
 

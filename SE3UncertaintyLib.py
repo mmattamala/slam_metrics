@@ -592,7 +592,7 @@ def Fusing(Tlist, sigmalist, N = 0, maxiterations=30, retiter=False):
     return T, sigma
 
 
-def Visualize(Tlist,sigmalist, nsamples = 100):
+def Visualize(Tlist,sigmalist, nsamples = 100, plot_color=None ):
   """
   Visualize an estimation (a point will be used to represent the translation position of a transformation)
   @param Tlist:     a list of Transformations
@@ -604,7 +604,10 @@ def Visualize(Tlist,sigmalist, nsamples = 100):
   ax = fig.add_subplot(111, projection='3d')
   colors = iter(cm.rainbow(np.linspace(0, 1, len(Tlist))))
   for i in range(len(sigmalist)):
-    color = next(colors)
+    if plot_color is not None:
+      color = plot_color
+    else:
+      color = next(colors)
     cholsigma = np.linalg.cholesky(sigmalist[i]).T
     Tsample = []
     for k in range(nsamples):

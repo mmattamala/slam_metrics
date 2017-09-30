@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 """
 This file concentrates many functions used to compute SLAM metrics
 Many are based on the TUM scripts by Juergen Sturm (see license below)
@@ -605,3 +607,36 @@ def align_trajectories_horn(traj_gt, traj_est, verbose=False, align_gt=True, ret
         return traj_gt_aligned, traj_est_aligned, Talign
     else:
         return traj_gt_aligned, traj_est_aligned
+
+def align_trajectories_to_first(traj_gt, traj_est, verbose=False):
+    """
+    Aligns two trajectories by substracting the initial pose.
+
+    Input:
+    traj_gt -- a dictionary of ground truth (stamp,pose)
+    traj_est -- a dictionary of estimated (stamp,pose)
+
+    Output:
+    traj_gt_aligned -- a dictionary of aligned ground truth (stamp,pose)
+    traj_est_aligned -- a dictionary of aligned ground truth (stamp,pose)
+
+    """
+
+    #print(traj_gt)
+    #print(traj_est)
+
+    stamps_gt = list(traj_gt.keys())
+    stamps_gt.sort()
+    stamps_est = list(traj_est.keys())
+    stamps_est.sort()
+
+    t0_gt = stamps_gt[0]
+    t0_est = stamps_est[0]
+
+    traj_gt_0 = np.linalg.inv(traj_gt[t0_gt])
+    traj_est_0 = np.linalg.inv(traj_est[t0_est])
+
+    traj_gt_aligned  = dict( [(a, np.dot(traj_gt_0, traj_gt[a])) for a in traj_gt])
+    traj_est_aligned  = dict( [(a, np.dot(traj_est_0, traj_est[a])) for a in traj_est])
+
+    return traj_gt_aligned, traj_est_aligned
