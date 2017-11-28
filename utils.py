@@ -157,7 +157,7 @@ def scale_dict(unscaled_dict, scale_factor=1, is_cov=False):
             unscaled_dict[key] = scale_pose(unscaled_dict[key], scale_factor)
     return unscaled_dict
 
-def associate(first_list, second_list, offset=0.0, max_difference=0.02):
+def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_initial=0.0):
     """
     Associate two dictionaries of (stamp,data). As the time stamps never match exactly, we aim
     to find the closest match for every input tuple.
@@ -180,11 +180,23 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02):
                          if (abs(a - (b + offset)) < max_difference)]
     potential_matches.sort()
     matches = []
+
+    # get initial timestamp
+    first_keys.sort()
+    second_keys.sort()
+    first_t0 = first_keys[0] + offset_initial
+    second_t0 = second_keys[0] + offset_initial
+    print(first_t0)
+    print(second_t0)
+    print(offset_initial)
+
+    # generate the matches
     for diff, a, b in potential_matches:
         if a in first_keys and b in second_keys:
-            first_keys.remove(a)
-            second_keys.remove(b)
-            matches.append((a, b))
+            if a > first_t0 and b > second_t0:
+                first_keys.remove(a)
+                second_keys.remove(b)
+                matches.append((a, b))
 
     matches.sort()
 
@@ -193,7 +205,7 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02):
 
     return matches
 
-def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, max_difference=0.02):
+def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, max_difference=0.02, offset_initial=0.0):
     """
     Associate two dictionaries of (stamp,data). As the time stamps never match exactly, we aim
     to find the closest match for every input tuple.
@@ -210,7 +222,7 @@ def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, m
 
     """
 
-    matches = associate(first_list, second_list, offset=offset, max_difference=max_difference)
+    matches = associate(first_list, second_list, offset=offset, max_difference=max_difference, offset_initial=offset_initial)
 
     filt_first  = dict( [(a, first_list[a]) for a,b in matches] )
     filt_second = dict( [(b, second_list[b]) for a,b in matches] )

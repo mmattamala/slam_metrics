@@ -24,6 +24,7 @@ if __name__=="__main__":
     parser.add_argument('gt_file', help='ground truth trajectory (format: timestamp tx ty tz qx qy qz qw)')
     parser.add_argument('est_file', help='estimated trajectory (format: timestamp tx ty tz qx qy qz qw)')
     parser.add_argument('--offset', help='time offset added to the timestamps of the second file (default: 0.0)',default=0.0)
+    parser.add_argument('--offset_initial', help='time offset to start the sequence analysis (default: 0.0)',default=0.0)
     parser.add_argument('--scale', help='scaling factor for the second trajectory (default: 1.0)',default=1.0)
     parser.add_argument('--max_pairs', help='maximum number of pose comparisons (default: 10000, set to zero to disable downsampling)', default=10000)
     parser.add_argument('--max_difference', help='maximally allowed time difference for matching entries (default: 0.02)',default=0.02)
@@ -36,6 +37,7 @@ if __name__=="__main__":
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
+    parser.add_argument('--ignore_timestamp_match', help='ignores the timestamp to associate the sequences', action='store_true')
 
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
@@ -51,21 +53,28 @@ if __name__=="__main__":
     est_format = utils.check_valid_pose_format(est_dict)
 
     # generate poses
-    gt_poses, gt_cov = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
-    est_poses, est_cov = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+    if gt_format == 'tum_cov':
+        gt_poses, gt_cov = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
+        est_poses, est_cov = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+    else:
+        gt_poses  = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
+        est_poses = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
 
     #for key in est_poses:
     #    print(est_poses[key][0:3,3])
 
     # apply scale
     gt_poses  = utils.scale_dict(gt_poses, scale_factor=1)
-    gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
     est_poses = utils.scale_dict(est_poses, scale_factor=1)
-    est_cov   = utils.scale_dict(est_cov, scale_factor=1, is_cov=True)
+    if gt_format == 'tum_cov':
+        gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
+        est_cov   = utils.scale_dict(est_cov, scale_factor=1, is_cov=True)
 
     # associate sequences according to timestamps
-    gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference))
-    gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference))
+    if not args.ignore_timestamp_match:
+        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial))
+        if gt_format == 'tum_cov':
+            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial))
 
     # align poses
     #gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
@@ -74,7 +83,6 @@ if __name__=="__main__":
 
     gt_poses_align = gt_poses_align_first
     est_poses_align = est_poses_align_first
-
 
     #for key in est_poses_align_man:
     #    print(est_poses_align_man[key][0:3,3])
