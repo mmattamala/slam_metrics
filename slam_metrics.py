@@ -11,13 +11,13 @@ import numpy as np
 import SE3UncertaintyLib as SE3Lib
 import utils
 
-dimension_map = {'X':   [True, False, False],
-                 'Y':   [False, True, False],
-                 'Z':   [False, False, True],
-                 'XY':  [True, True, False],
-                 'XZ':  [True, False, True],
-                 'YZ':  [False, True, True],
-                 'XYZ': [True, True, True]
+dimension_map = {'X':   [True, False, False, False],
+                 'Y':   [False, True, False, False],
+                 'Z':   [False, False, True, False],
+                 'XY':  [True, True, False, False],
+                 'XZ':  [True, False, True, False],
+                 'YZ':  [False, True, True, False],
+                 'XYZ': [True, True, True, False]
                  }
 
 def compute_statistics(err, verbose=False, variable='Translational', use_deg=True):
@@ -109,7 +109,6 @@ def ATE_Horn(traj_gt, traj_est, compute_scale=False, axes='XYZ'):
     #    print(traj_est[a])
     #    print(traj_est[a][idx,3])
     #    #print(traj_gt[a][0:3,3])
-
 
     # recover a list with the translations only
     gt_xyz  = np.matrix([traj_gt[a][idx,3] for a in traj_gt]).transpose()

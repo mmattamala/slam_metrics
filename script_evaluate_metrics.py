@@ -35,6 +35,9 @@ if __name__=="__main__":
     parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
     parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
 
+    parser.add_argument('--ate_manifold', help='Computes the error using ATE on the manifold', action='store_true')
+    parser.add_argument('--rpe', help='Computes RPE', action='store_true')
+    parser.add_argument('--ddt', help='Computes DDT', action='store_true')
     parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
@@ -98,49 +101,52 @@ if __name__=="__main__":
         # ATE (Absolute trajectory error)
         print('\nATE - Horn')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - X')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='X')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - Y')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Y')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - Z')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Z')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0))
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
 
 
         # ATE (Absolute trajectory error, SE(3))
-        print('\nATE - Manifold')
-        ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align,
-                                             est_poses_align,
-                                             offset=float(args.offset),
-                                             max_difference=float(args.max_difference))
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+        if(args.ate_manifold):
+            print('\nATE - Manifold')
+            ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align,
+                                                 est_poses_align,
+                                                 offset=float(args.offset),
+                                                 max_difference=float(args.max_difference))
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
         # RPE (Relative Pose Error)
-        print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
-        rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align,
-                                                                   est_poses_align,
-                                                                   param_max_pairs=int(args.max_pairs),
-                                                                   param_fixed_delta=args.fixed_delta,
-                                                                   param_delta=float(args.delta),
-                                                                   param_delta_unit=args.delta_unit,
-                                                                   param_offset=float(args.offset))
+        if(args.rpe):
+            print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
+            rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align,
+                                                                       est_poses_align,
+                                                                       param_max_pairs=int(args.max_pairs),
+                                                                       param_fixed_delta=args.fixed_delta,
+                                                                       param_delta=float(args.delta),
+                                                                       param_delta_unit=args.delta_unit,
+                                                                       param_offset=float(args.offset))
 
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
-        print('\nDDT')
-        ddt = np.divide(rpe_error, rpe_distance)
-        slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-        slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
-
+        # DDT (Drift per distance)
+        if(args.ddt):
+            print('\nDDT')
+            ddt = np.divide(rpe_error, rpe_distance)
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
     if(args.show_plots):
         gt_data = gt_poses_align
@@ -170,4 +176,4 @@ if __name__=="__main__":
         #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
         #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
-        plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
