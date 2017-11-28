@@ -157,7 +157,7 @@ def scale_dict(unscaled_dict, scale_factor=1, is_cov=False):
             unscaled_dict[key] = scale_pose(unscaled_dict[key], scale_factor)
     return unscaled_dict
 
-def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_initial=0.0):
+def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_initial=0.0, recommended_offset=False):
     """
     Associate two dictionaries of (stamp,data). As the time stamps never match exactly, we aim
     to find the closest match for every input tuple.
@@ -174,18 +174,22 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_i
     """
     first_keys = list(first_list.keys())
     second_keys = list(second_list.keys())
-    potential_matches = [(abs(a - (b + offset)), a, b)
-                         for a in first_keys
-                         for b in second_keys
-                         if (abs(a - (b + offset)) < max_difference)]
-    potential_matches.sort()
-    matches = []
 
     # get initial timestamp
     first_keys.sort()
     second_keys.sort()
     first_t0 = first_keys[0] + offset_initial
     second_t0 = second_keys[0] + offset_initial
+
+    if recommended_offset:
+        offset = (first_keys[0] - second_keys[0])
+
+    potential_matches = [(abs(a - (b + offset)), a, b)
+                         for a in first_keys
+                         for b in second_keys
+                         if (abs(a - (b + offset)) < max_difference)]
+    potential_matches.sort()
+    matches = []
 
     # generate the matches
     for diff, a, b in potential_matches:
@@ -202,7 +206,7 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_i
 
     return matches
 
-def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, max_difference=0.02, offset_initial=0.0):
+def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, max_difference=0.02, offset_initial=0.0, recommended_offset=False):
     """
     Associate two dictionaries of (stamp,data). As the time stamps never match exactly, we aim
     to find the closest match for every input tuple.
@@ -219,7 +223,7 @@ def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, m
 
     """
 
-    matches = associate(first_list, second_list, offset=offset, max_difference=max_difference, offset_initial=offset_initial)
+    matches = associate(first_list, second_list, offset=offset, max_difference=max_difference, offset_initial=offset_initial, recommended_offset=recommended_offset)
 
     filt_first  = dict( [(a, first_list[a]) for a,b in matches] )
     filt_second = dict( [(b, second_list[b]) for a,b in matches] )

@@ -35,14 +35,15 @@ if __name__=="__main__":
     parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
     parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
 
-    parser.add_argument('--ate_manifold', help='Computes the error using ATE on the manifold', action='store_true')
-    parser.add_argument('--rpe', help='Computes RPE', action='store_true')
-    parser.add_argument('--ddt', help='Computes DDT', action='store_true')
+    parser.add_argument('--ate_manifold', help='computes the error using ATE on the manifold', action='store_true')
+    parser.add_argument('--rpe', help='computes RPE', action='store_true')
+    parser.add_argument('--ddt', help='computes DDT', action='store_true')
     parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
     parser.add_argument('--ignore_timestamp_match', help='ignores the timestamp to associate the sequences', action='store_true')
+    parser.add_argument('--recommended_offset', help='ignores the given offset and uses the recommended offset obtained from the sequences', action='store_true')
 
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
@@ -81,9 +82,9 @@ if __name__=="__main__":
 
     # associate sequences according to timestamps
     if not args.ignore_timestamp_match:
-        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial))
+        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
         if gt_format == 'tum_cov':
-            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial))
+            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
 
     # align poses
     #gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
