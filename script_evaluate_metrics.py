@@ -32,6 +32,8 @@ if __name__=="__main__":
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'m\')',default='m')
     parser.add_argument('--alignment', help='type of trajectory alignment (options: \'man\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
+    parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
+    parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
 
     parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
@@ -43,6 +45,10 @@ if __name__=="__main__":
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
     #parser.add_argument('--plot', help='plot the first and the aligned second trajectory to an image (format: png)')
     args = parser.parse_args()
+
+    # configure the plotting stuff
+    plot_utils.set_language(lang=args.plot_lang)
+    plot_utils.set_file_extension(ext=args.plot_format)
 
     # read files in TUM format or TUM modified format (with covariances)
     gt_dict  = utils.read_file_dict(args.gt_file)
@@ -160,8 +166,8 @@ if __name__=="__main__":
         gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
         est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
 
-        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz)
+        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, save_fig=True)
         #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
         #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
-        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        plot_utils.plot_3d_xyz(gt_xyz, est_xyz)

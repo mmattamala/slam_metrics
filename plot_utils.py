@@ -3,10 +3,49 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import SE3UncertaintyLib as SE3Lib
 
-_est_color = 'b'
-_gt_color = 'r'
+# matplotlib config
+plt.style.use('seaborn-paper')
 
-def plot_3d_xyz(gt_traj, est_traj, gt_color=_gt_color, est_color=_est_color, show=True, export=False, title='Plot XYZ', max_height=0.4):
+_est_color = 'b'
+_gt_color = 'k'
+
+_en_labels={'ground_truth': 'Ground Truth', \
+           'estimated': 'Estimated', \
+           'traj': 'Trajectory', \
+           'x_axis': 'x-axis', \
+           'y_axis': 'y-axis', \
+           'z_axis': 'z-axis' \
+           }
+
+_es_labels={'ground_truth': 'Ground Truth', \
+           'estimated': 'Estimación', \
+           'traj': 'Trayectoria', \
+           'x_axis': 'eje x', \
+           'y_axis': 'eje y', \
+           'z_axis': 'eje z' \
+           }
+
+_lang_labels = {'EN' : _en_labels, \
+                'ES' : _es_labels  \
+               }
+
+
+_fig_extension = 'pdf'
+_lang = 'ES'
+_labels = _lang_labels[_lang]
+
+def set_file_extension(ext='pdf'):
+    global _fig_extension
+    _fig_extension = ext
+
+def set_language(lang='EN'):
+    global _lang
+    global _labels
+    global _lang_labels
+    _lang = lang
+    _labels = _lang_labels[_lang]
+
+def plot_3d_xyz(gt_traj, est_traj, show=True, export=False, title='Plot XYZ', max_height=0.4):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -19,23 +58,23 @@ def plot_3d_xyz(gt_traj, est_traj, gt_color=_gt_color, est_color=_est_color, sho
     est_y = est_traj[1,:].A[0]
     est_z = est_traj[2,:].A[0]
 
-    ax.plot(gt_x, gt_y, zs=gt_z, label='Ground Truth', color=gt_color, zdir='z')
-    ax.plot(est_x, est_y, zs=est_z, label='Estimated', color=est_color, zdir='z')
+    ax.plot(gt_x, gt_y, zs=gt_z, label=_labels['ground_truth'], color=_gt_color, zdir='z')
+    ax.plot(est_x, est_y, zs=est_z, label=_labels['estimated'], zdir='z')
 
     ax.set_xlim([-2, 2])
     ax.set_ylim([-2, 2])
     ax.set_zlim([-2, 2])
 
-    #ax.xlabel('x [m]')
-    #ax.ylabel('y [m]')
-    #ax.zlabel('z [m]')
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
     # set axes properties
     #ax.set_zlim([0, max_height])
 
-    ax.legend()
+    ax.legend(loc='upper right')
     plt.show()
 
-def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=100, gt_color=_gt_color, est_color=_est_color, show=True, export=False, title='Plot XYZ', max_height=0.4):
+def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=100, show=True, export=False, title='Plot XYZ', max_height=0.4):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -51,8 +90,8 @@ def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=
     est_y = est_xyz[1,:].A[0]
     est_z = est_xyz[2,:].A[0]
 
-    ax.plot(gt_x, gt_y, zs=gt_z, label='Ground Truth', color=gt_color, zdir='z')
-    ax.plot(est_x, est_y, zs=est_z, label='Estimated', color=est_color, zdir='z')
+    ax.plot(gt_x, gt_y, zs=gt_z, label=_labels['ground_truth'], color=_gt_color, zdir='z')
+    ax.plot(est_x, est_y, zs=est_z, label=_labels['estimated'], zdir='z')
 
     est_list = []
     est_cov_list = []
@@ -72,20 +111,20 @@ def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=
             gt_cov_list.append(gt_cov[key])
             i = i + 1
 
-    SE3Lib.Visualize(gt_list, gt_cov_list, nsamples = 1000, plot_color=gt_color )
-    SE3Lib.Visualize(est_list, est_cov_list, nsamples = 1000, plot_color=est_color )
-
+    SE3Lib.Visualize(gt_list, gt_cov_list, nsamples = 1000,)
+    SE3Lib.Visualize(est_list, est_cov_list, nsamples = 1000)
 
     ax.set_xlim([-2, 2])
     ax.set_ylim([-2, 2])
     ax.set_zlim([-2, 2])
 
-    ax.legend()
+    ax.legend(loc='upper right')
     plt.show()
 
-def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, gt_color=_gt_color, est_color=_est_color):
+def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, save_fig=False):
 
     fig, axarr = plt.subplots(3, sharex=True)
+    fig.tight_layout(pad=2.0, w_pad=0.0, h_pad=3.0)
 
     gt_time = np.array(gt_time) - gt_time[0]
     est_time = np.array(est_time) - est_time[0]
@@ -98,19 +137,21 @@ def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, gt_color=_gt_color, e
     est_y = est_traj[1,:].A[0]
     est_z = est_traj[2,:].A[0]
 
-    axarr[0].plot(gt_time, gt_x, color=gt_color, label='Ground Truth')
-    axarr[0].plot(est_time, est_x, color=est_color, label='Estimated')
-    axarr[0].set_title('Trajectory (x-axis)')
-    axarr[0].legend()
+    axarr[0].plot(gt_time, gt_x, color=_gt_color, label=_labels['ground_truth'])
+    axarr[0].plot(est_time, est_x, label=_labels['estimated'])
+    axarr[0].set_title(_labels['traj'] + ' (' + _labels['x_axis'] + ')')
+    axarr[0].legend(loc='upper right')
 
-    axarr[1].plot(gt_time, gt_y, color=gt_color, label='Ground Truth')
-    axarr[1].plot(est_time, est_y, color=est_color, label='Estimated')
-    axarr[1].set_title('Trajectory (y-axis)')
-    axarr[1].legend()
+    axarr[1].plot(gt_time, gt_y, color=_gt_color, label=_labels['ground_truth'])
+    axarr[1].plot(est_time, est_y, label=_labels['estimated'])
+    axarr[1].set_title(_labels['traj'] + ' (' + _labels['y_axis'] + ')')
+    axarr[1].legend(loc='upper right')
 
-    axarr[2].plot(gt_time, gt_z, color=gt_color, label='Ground Truth')
-    axarr[2].plot(est_time, est_z, color=est_color, label='Estimated')
-    axarr[2].set_title('Trajectory (z-axis)')
-    axarr[2].legend()
+    axarr[2].plot(gt_time, gt_z, color=_gt_color, label=_labels['ground_truth'])
+    axarr[2].plot(est_time, est_z, label=_labels['estimated'])
+    axarr[2].set_title(_labels['traj'] + ' (' + _labels['z_axis'] + ')')
+    axarr[2].legend(loc='upper right')
 
     plt.show()
+    if save_fig:
+        fig.savefig(_labels['traj'] + '-xyz' '.' + _fig_extension)
