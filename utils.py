@@ -186,9 +186,6 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_i
     second_keys.sort()
     first_t0 = first_keys[0] + offset_initial
     second_t0 = second_keys[0] + offset_initial
-    print(first_t0)
-    print(second_t0)
-    print(offset_initial)
 
     # generate the matches
     for diff, a, b in potential_matches:
@@ -201,7 +198,7 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_i
     matches.sort()
 
     if(len(matches)<2):
-        sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence?")
+        sys.exit("Couldn't find matching timestamp pairs between groundtruth and estimated trajectory! Did you choose the correct sequence? Try with --offset %f" % (first_keys[0] - second_keys[0]))
 
     return matches
 
