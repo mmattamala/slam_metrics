@@ -34,6 +34,8 @@ if __name__=="__main__":
     parser.add_argument('--alignment', help='type of trajectory alignment (options: \'first\' for first pose, \'manifold\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
     parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
     parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
+    parser.add_argument('--gt_static_transform', help='a static transform for ground truth trajectory (format: timestamp tx ty tz qx qy qz qw)', default=None)
+    parser.add_argument('--est_static_transform', help='a static transform for ground truth trajectory (format: timestamp tx ty tz qx qy qz qw)', default=None)
 
     parser.add_argument('--ate_manifold', help='computes the error using ATE on the manifold', action='store_true')
     parser.add_argument('--rpe', help='computes RPE', action='store_true')
@@ -70,8 +72,22 @@ if __name__=="__main__":
         gt_poses  = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
         est_poses = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
 
-    #for key in est_poses:
-    #    print(est_poses[key][0:3,3])
+    # associate sequences according to timestamps
+    if not args.ignore_timestamp_match:
+        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
+        if gt_format == 'tum_cov':
+            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
+
+    # align poses
+    if args.alignment == 'manifold':
+        if gt_format == 'tum_cov':
+            gt_poses, est_poses, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
+        else:
+            gt_poses, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'horn':
+        gt_poses, est_poses, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'first':
+        gt_poses, est_poses = utils.align_trajectories_to_first(gt_poses, est_poses)
 
     # apply scale
     scale = float(args.scale)
@@ -84,41 +100,38 @@ if __name__=="__main__":
         gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
         est_cov   = utils.scale_dict(est_cov, scale_factor=scale, is_cov=True)
 
-    # associate sequences according to timestamps
-    if not args.ignore_timestamp_match:
-        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
-        if gt_format == 'tum_cov':
-            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
-
-    # align poses
-    if args.alignment == 'manifold':
-        if gt_format == 'tum_cov':
-            gt_poses_align, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
-        else:
-            gt_poses_align, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'horn':
-        gt_poses_align, est_poses_align, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'first':
-        gt_poses_align, est_poses_align = utils.align_trajectories_to_first(gt_poses, est_poses)
+    ## apply fixed transform
+    #if args.gt_static_transform:
+    #    gt_static_dict  = utils.read_file_dict(args.gt_static_transform)
+    #    gt_static_format = utils.check_valid_pose_format(gt_static_dict)
+    #    gt_static_poses = utils.convert_file_dict_to_pose_dict(gt_static_dict, file_format=gt_static_format)
+    #    gt_static_poses = dict( [(a, gt_static_poses[a]) for a in gt_poses] )
+    #    gt_poses = dict([ (a, np.dot(gt_poses[a], gt_static_poses[b])) for a,b in zip(gt_poses,gt_static_poses)])
+    #if args.est_static_transform:
+    #    est_static_dict  = utils.read_file_dict(args.est_static_transform)
+    #    est_static_format = utils.check_valid_pose_format(est_static_dict)
+    #    est_static_poses = utils.convert_file_dict_to_pose_dict(est_static_dict, file_format=est_static_format)
+    #    est_static_poses = dict( [(a, est_static_poses[a]) for a in est_poses] )
+    #    est_poses = dict([ (a, np.dot(est_poses[a], est_static_poses[b])) for a,b in zip(est_poses,est_static_poses)])
 
 
     if(not args.no_metrics):
         # Compute metrics
         # ATE (Absolute trajectory error)
         print('\nATE - Horn')
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align)
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses)
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - X')
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='X')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='X')
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - Y')
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Y')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Y')
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
         print('\nATE - Horn - Z')
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses_align, est_poses_align, axes='Z')
+        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Z')
         slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
 
 
@@ -126,8 +139,8 @@ if __name__=="__main__":
         # ATE (Absolute trajectory error, SE(3))
         if(args.ate_manifold):
             print('\nATE - Manifold')
-            ate_se3_error = slam_metrics.ATE_SE3(gt_poses_align,
-                                                 est_poses_align,
+            ate_se3_error = slam_metrics.ATE_SE3(gt_poses,
+                                                 est_poses,
                                                  offset=float(args.offset),
                                                  max_difference=float(args.max_difference))
             slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
@@ -136,8 +149,8 @@ if __name__=="__main__":
         # RPE (Relative Pose Error)
         if(args.rpe):
             print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
-            rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses_align,
-                                                                       est_poses_align,
+            rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses,
+                                                                       est_poses,
                                                                        param_max_pairs=int(args.max_pairs),
                                                                        param_fixed_delta=args.fixed_delta,
                                                                        param_delta=float(args.delta),
@@ -155,8 +168,8 @@ if __name__=="__main__":
             slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
     if(args.show_plots):
-        gt_data = gt_poses_align
-        est_data = est_poses_align
+        gt_data = gt_poses
+        est_data = est_poses
 
         gt_stamps = list(gt_data.keys())
         gt_stamps.sort()
