@@ -31,14 +31,14 @@ if __name__=="__main__":
     parser.add_argument('--fixed_delta', help='only consider pose pairs that have a distance of delta delta_unit (e.g., for evaluating the drift per second/meter/radian)', action='store_true')
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'m\')',default='m')
-    parser.add_argument('--alignment', help='type of trajectory alignment (options: \'man\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
+    parser.add_argument('--alignment', help='type of trajectory alignment (options: \'first\' for first pose, \'manifold\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
     parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
     parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
 
     parser.add_argument('--ate_manifold', help='computes the error using ATE on the manifold', action='store_true')
     parser.add_argument('--rpe', help='computes RPE', action='store_true')
     parser.add_argument('--ddt', help='computes DDT', action='store_true')
-    parser.add_argument('--compute_automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
+    parser.add_argument('--automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
     parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
@@ -74,11 +74,15 @@ if __name__=="__main__":
     #    print(est_poses[key][0:3,3])
 
     # apply scale
+    scale = float(args.scale)
+    if args.automatic_scale:
+        scale = utils.compute_scale_from_trajectories(gt_poses, est_poses)
+    print('Using scale: %f' % scale)
     gt_poses  = utils.scale_dict(gt_poses, scale_factor=1)
-    est_poses = utils.scale_dict(est_poses, scale_factor=1)
+    est_poses = utils.scale_dict(est_poses, scale_factor=scale)
     if gt_format == 'tum_cov':
         gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
-        est_cov   = utils.scale_dict(est_cov, scale_factor=1, is_cov=True)
+        est_cov   = utils.scale_dict(est_cov, scale_factor=scale, is_cov=True)
 
     # associate sequences according to timestamps
     if not args.ignore_timestamp_match:
@@ -87,15 +91,16 @@ if __name__=="__main__":
             gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
 
     # align poses
-    #gt_poses_align_man, est_poses_align_man, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
-    #gt_poses_align_horn, est_poses_align_horn, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
-    gt_poses_align_first, est_poses_align_first = utils.align_trajectories_to_first(gt_poses, est_poses)
+    if args.alignment == 'manifold':
+        if gt_format == 'tum_cov':
+            gt_poses_align, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
+        else:
+            gt_poses_align, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'horn':
+        gt_poses_align, est_poses_align, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'first':
+        gt_poses_align, est_poses_align = utils.align_trajectories_to_first(gt_poses, est_poses)
 
-    gt_poses_align = gt_poses_align_first
-    est_poses_align = est_poses_align_first
-
-    #for key in est_poses_align_man:
-    #    print(est_poses_align_man[key][0:3,3])
 
     if(not args.no_metrics):
         # Compute metrics

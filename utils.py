@@ -263,6 +263,23 @@ def find_closest_index(L,t):
             beginning = middle + 1
     return best
 
+def compute_scale_from_trajectories(gt_poses, est_poses):
+    # recover a list with the translations only
+    gt_xyz  = np.matrix([gt_poses[a][0:3,3] for a in gt_poses])
+    est_xyz  = np.matrix([est_poses[a][0:3,3] for a in est_poses])
+
+    norm_gt = 0
+    norm_est = 0
+    for c_gt, c_est in zip(gt_xyz, est_xyz):
+        #print(c_gt)
+        d_gt = np.linalg.norm(c_gt)
+        d_est = np.linalg.norm(c_est)
+        norm_gt += d_gt*d_gt
+        norm_est += d_est*d_est
+    s = float(norm_gt/norm_est)
+    #print(s)
+    return np.sqrt(s)
+
 def scale_pose(a,scalar):
     """
     Scale the translational components of a 4x4 homogeneous matrix by a scale factor.
