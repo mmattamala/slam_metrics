@@ -31,7 +31,7 @@ if __name__=="__main__":
     parser.add_argument('--fixed_delta', help='only consider pose pairs that have a distance of delta delta_unit (e.g., for evaluating the drift per second/meter/radian)', action='store_true')
     parser.add_argument('--delta', help='delta for evaluation (default: 1.0)',default=1.0)
     parser.add_argument('--delta_unit', help='unit of delta (options: \'s\' for seconds, \'m\' for meters, \'rad\' for radians, \'f\' for frames; default: \'m\')',default='m')
-    parser.add_argument('--alignment', help='type of trajectory alignment (options: \'first\' for first pose, \'manifold\' for manifold, \'horn\' for Horn\'s method; default: \'horn\')',default='horn')
+    parser.add_argument('--alignment', help='type of trajectory alignment (options: \'first\' for first pose, \'manifold\' for manifold, \'horn\' for Horn\'s method; default: \'none\')',default='none')
     parser.add_argument('--plot_lang', help='language used to show the plots; default: \'EN\')',default='EN')
     parser.add_argument('--plot_format', help='format to export the plots; default: \'pdf\')',default='pdf')
     parser.add_argument('--gt_static_transform', help='a static transform for ground truth trajectory (format: timestamp tx ty tz qx qy qz qw)', default=None)
@@ -42,6 +42,7 @@ if __name__=="__main__":
     parser.add_argument('--ddt', help='computes DDT', action='store_true')
     parser.add_argument('--automatic_scale', help='ATE_Horn computes the absolute scale using the mod by Raul Mur', action='store_true')
     parser.add_argument('--show_plots', help='shows the trajectory plots', action='store_true')
+    parser.add_argument('--save_plots', help='saves the trajectory plots', action='store_true')
     parser.add_argument('--no_metrics', help='not computes the metrics, used for plotting test only', action='store_true')
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
     parser.add_argument('--ignore_timestamp_match', help='ignores the timestamp to associate the sequences', action='store_true')
@@ -167,7 +168,7 @@ if __name__=="__main__":
             slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
             slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
 
-    if(args.show_plots):
+    if(args.show_plots or args.save_plots):
         gt_data = gt_poses
         est_data = est_poses
 
@@ -191,7 +192,7 @@ if __name__=="__main__":
         gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
         est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
 
-        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, save_fig=True)
+        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
         #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
         #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
