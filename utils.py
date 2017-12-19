@@ -206,6 +206,16 @@ def associate(first_list, second_list, offset=0.0, max_difference=0.02, offset_i
 
     return matches
 
+def filter(matches, first_list, second_list, third_list=None):
+    filt_first  = dict( [(a, first_list[a]) for a,b in matches] )
+    filt_second = dict( [(b, second_list[b]) for a,b in matches] )
+
+    if third_list is not None:
+        filt_third = dict( [(b, first_list[b]) for a,b in matches] )
+        return filt_first, filt_second, filt_third
+    else:
+        return filt_first, filt_second
+
 def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, max_difference=0.02, offset_initial=0.0, recommended_offset=False):
     """
     Associate two dictionaries of (stamp,data). As the time stamps never match exactly, we aim
@@ -224,15 +234,7 @@ def associate_and_filter(first_list, second_list, third_list=None, offset=0.0, m
     """
 
     matches = associate(first_list, second_list, offset=offset, max_difference=max_difference, offset_initial=offset_initial, recommended_offset=recommended_offset)
-
-    filt_first  = dict( [(a, first_list[a]) for a,b in matches] )
-    filt_second = dict( [(b, second_list[b]) for a,b in matches] )
-
-    if third_list is not None:
-        filt_third = dict( [(b, first_list[b]) for a,b in matches] )
-        return filt_first, filt_second, filt_third
-    else:
-        return filt_first, filt_second
+    return filter(matches, first_list, second_list, third_list)
 
 
 def find_closest_index(L,t):

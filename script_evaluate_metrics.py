@@ -10,6 +10,7 @@ It is based on the TUM scripts
 import sys
 import numpy as np
 import argparse
+import glob
 import utils
 import plot_utils
 import slam_metrics
@@ -58,80 +59,110 @@ if __name__=="__main__":
     plot_utils.set_file_extension(ext=args.plot_format)
 
     # read files in TUM format or TUM modified format (with covariances)
-    gt_dict  = utils.read_file_dict(args.gt_file)
-    est_dict = utils.read_file_dict(args.est_file)
+    # we use glob to handle the case of single files or a list of files that match some specified pattern
+    print(args.gt_file)
+    print(args.est_file)
 
+    gt_files  = glob.glob(args.gt_file)
+    est_files = glob.glob(args.est_file)
+
+    if len(gt_files) == 0 or len(est_files) == 0:
+        sys.exit("Either the ground truth or estimated trajectory don't have any files associated. Please check the file names")
+    if len(gt_files) != 1:
+        sys.exit("Please select only one ground truth trajectory file")
+
+    # prepare temporal list to allocate the data
+    gt_poses_list = []
+    gt_cov_list = []
+    est_poses_list = []
+    est_cov_list = []
+
+    # read estimated files
+    for est in est_files:
+        est_dict = utils.read_file_dict(est)
+        est_format = utils.check_valid_pose_format(est_dict)
+        if est_format == 'tum_cov':
+            est_poses, est_cov = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+            est_poses_list.append(est_poses)
+            est_cov_list.append(est_cov)
+        else:
+            est_poses = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+            est_poses_list.append(est_poses)
+    num_files = len(est_files)
+
+    # read ground truth
+    gt_dict  = utils.read_file_dict(gt_files[0])
     # check file format
     gt_format = utils.check_valid_pose_format(gt_dict)
-    est_format = utils.check_valid_pose_format(est_dict)
-
     # generate poses
     if gt_format == 'tum_cov':
         gt_poses, gt_cov = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
-        est_poses, est_cov = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+        gt_poses_list = [gt_poses]*num_files
+        gt_cov_list = [gt_cov]*num_files
     else:
-        gt_poses  = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
-        est_poses = utils.convert_file_dict_to_pose_dict(est_dict, file_format=est_format)
+        gt_poses = utils.convert_file_dict_to_pose_dict(gt_dict, file_format=gt_format)
+        gt_poses_list = [gt_poses]*num_files
+    print(len(gt_poses_list))
+    print(len(est_poses_list))
+
 
     # associate sequences according to timestamps
     if not args.ignore_timestamp_match:
-        gt_poses, est_poses = utils.associate_and_filter(gt_poses, est_poses, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
-        if gt_format == 'tum_cov':
-            gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
+        for i in range(num_files):
+        # aling each sequence with their corresponding ground truth
+            gt_poses_list[i], est_poses_list[i] = utils.associate_and_filter(gt_poses_list[i], est_poses_list[i], offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
+            if gt_format == 'tum_cov':
+                gt_cov_list[i], est_cov_list[i] = utils.associate_and_filter(gt_cov_list[i], est_cov_list[i], offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
 
     # apply scale
-    scale = float(args.scale)
-    if args.automatic_scale:
-        scale = utils.compute_scale_from_trajectories(gt_poses, est_poses)
-    print('Using scale: %f' % scale)
-    gt_poses  = utils.scale_dict(gt_poses, scale_factor=1)
-    est_poses = utils.scale_dict(est_poses, scale_factor=scale)
-    if gt_format == 'tum_cov':
-        gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
-        est_cov   = utils.scale_dict(est_cov, scale_factor=scale, is_cov=True)
+    for i in range(num_files):
+        scale = float(args.scale)
+        if args.automatic_scale:
+            scale = utils.compute_scale_from_trajectories(gt_poses_list[i], est_poses_list[i])
+        print('Using scale: %f' % scale)
+        #gt_poses_list[i]  = utils.scale_dict(gt_poses_list[i, scale_factor=1)
+        est_poses_list[i] = utils.scale_dict(est_poses_list[i], scale_factor=scale)
+        if gt_format == 'tum_cov':
+            #gt_cov_list[i_   = utils.scale_dict(gt_cov_list[i, scale_factor=1, is_cov=True)
+            est_cov_list[i]   = utils.scale_dict(est_cov_list[i], scale_factor=scale, is_cov=True)
 
     # align poses
-    if args.alignment == 'manifold':
-        if gt_format == 'tum_cov':
-            gt_poses, est_poses, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
-        else:
-            gt_poses, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'horn':
-        gt_poses, est_poses, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'first':
-        gt_poses, est_poses = utils.align_trajectories_to_first(gt_poses, est_poses)
-
-    ## apply fixed transform
-    #if args.gt_static_transform:
-    #    gt_static_dict  = utils.read_file_dict(args.gt_static_transform)
-    #    gt_static_format = utils.check_valid_pose_format(gt_static_dict)
-    #    gt_static_poses = utils.convert_file_dict_to_pose_dict(gt_static_dict, file_format=gt_static_format)
-    #    gt_static_poses = dict( [(a, gt_static_poses[a]) for a in gt_poses] )
-    #    gt_poses = dict([ (a, np.dot(gt_poses[a], gt_static_poses[b])) for a,b in zip(gt_poses,gt_static_poses)])
-    #if args.est_static_transform:
-    #    est_static_dict  = utils.read_file_dict(args.est_static_transform)
-    #    est_static_format = utils.check_valid_pose_format(est_static_dict)
-    #    est_static_poses = utils.convert_file_dict_to_pose_dict(est_static_dict, file_format=est_static_format)
-    #    est_static_poses = dict( [(a, est_static_poses[a]) for a in est_poses] )
-    #    est_poses = dict([ (a, np.dot(est_poses[a], est_static_poses[b])) for a,b in zip(est_poses,est_static_poses)])
-
+    for i in range(num_files):
+        if args.alignment == 'manifold':
+            if gt_format == 'tum_cov':
+                gt_poses_list[i], est_poses_list[i], T_align_man = utils.align_trajectories_manifold(gt_poses_list[i], est_poses_list[i], cov_est=est_cov_list[i], align_gt=False)
+            else:
+                gt_poses_list[i], est_poses_align_list[i], T_align_man = utils.align_trajectories_manifold(gt_poses_list[i], est_poses_list[i], align_gt=False)
+        elif args.alignment == 'horn':
+            gt_poses_list[i], est_poses_list[i], T_align_horn = utils.align_trajectories_horn(gt_poses_list[i], est_poses_list[i], align_gt=False)
+        elif args.alignment == 'first':
+            gt_poses_list[i], est_poses_list[i] = utils.align_trajectories_to_first(gt_poses_list[i], est_poses_list[i])
+        print(len(gt_poses_list[i]))
+        print(len(est_poses_list[i]))
 
     if(not args.no_metrics):
-        # Compute metrics
-        # ATE (Absolute trajectory error)
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - XYZ')
+        ate_horn_stats_xyz = []
+        ate_horn_stats_x = []
+        ate_horn_stats_y = []
+        ate_horn_stats_z = []
+        for i in range(num_files):
+            # Compute metrics
+            # ATE (Absolute trajectory error)
+            ate_horn_error = slam_metrics.ATE_Horn(gt_poses_list[i], est_poses_list[i])
+            stats = slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - XYZ')
+            ate_horn_stats_xyz.append(stats)
 
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='X')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - X')
+            ate_horn_error = slam_metrics.ATE_Horn(gt_poses_list[i], est_poses_list[i], axes='X')
+            stats = slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - X')
+            ate_horn_stats_x.append(stats)
 
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Y')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Y')
+            ate_horn_error = slam_metrics.ATE_Horn(gt_poses_list[i], est_poses_list[i], axes='Y')
+            stats = slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Y')
+            ate_horn_stats_y.append(stats)
 
-        ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Z')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Z')
-
-
+            ate_horn_error = slam_metrics.ATE_Horn(gt_poses_list[i], est_poses_list[i], axes='Z')
+            stats = slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Z')
+            ate_horn_stats_z.append(stats)
 
         # ATE (Absolute trajectory error, SE(3))
         if(args.ate_manifold):
@@ -162,31 +193,32 @@ if __name__=="__main__":
             slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='DDT')
 
     if(args.show_plots or args.save_plots):
-        gt_data = gt_poses
-        est_data = est_poses
+        for i in range(num_files):
+            gt_data = gt_poses_list[i]
+            est_data = est_poses_list[i]
 
-        gt_stamps = list(gt_data.keys())
-        gt_stamps.sort()
-        est_stamps = list(est_data.keys())
-        est_stamps.sort()
+            gt_stamps = list(gt_data.keys())
+            gt_stamps.sort()
+            est_stamps = list(est_data.keys())
+            est_stamps.sort()
 
-        #gt_t0 = gt_stamps[0]
-        #est_t0 = est_stamps[0]
+            #gt_t0 = gt_stamps[0]
+            #est_t0 = est_stamps[0]
 
-        #gt_T0 = np.linalg.inv(gt_data[gt_t0])
-        #est_T0 = np.linalg.inv(est_data[est_t0])
+            #gt_T0 = np.linalg.inv(gt_data[gt_t0])
+            #est_T0 = np.linalg.inv(est_data[est_t0])
 
-        #gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
-        #est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
+            #gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
+            #est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
 
-        gt_xyz  = np.matrix([gt_data[a][0:3,3] for a in gt_data]).transpose()
-        est_xyz  = np.matrix([est_data[a][0:3,3] for a in est_data]).transpose()
+            gt_xyz  = np.matrix([gt_data[a][0:3,3] for a in gt_data]).transpose()
+            est_xyz  = np.matrix([est_data[a][0:3,3] for a in est_data]).transpose()
 
-        gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
-        est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
+            gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
+            est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
 
-        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
-        #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
-        plot_utils.plot_3d_xyz(gt_xyz, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
-        #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
-        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+            plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
+            #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
+            #plot_utils.plot_3d_xyz(gt_xyz, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
+            #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
+            #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
