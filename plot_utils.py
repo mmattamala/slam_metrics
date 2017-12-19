@@ -45,7 +45,7 @@ def set_language(lang='EN'):
     _lang = lang
     _labels = _lang_labels[_lang]
 
-def plot_3d_xyz(gt_traj, est_traj, show=True, export=False, title='Plot XYZ', max_height=0.4):
+def plot_3d_xyz(gt_traj, est_traj, save_fig=False, show_fig=False, title='Plot XYZ', max_height=0.4):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -72,7 +72,11 @@ def plot_3d_xyz(gt_traj, est_traj, show=True, export=False, title='Plot XYZ', ma
     #ax.set_zlim([0, max_height])
 
     ax.legend(loc='upper right')
-    plt.show()
+    if show_fig:
+        plt.show()
+
+    if save_fig:
+        fig.savefig(_labels['traj'] + '-3D-xyz' '.' + _fig_extension)
 
 def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=100, show=True, export=False, title='Plot XYZ', max_height=0.4):
 
@@ -137,31 +141,36 @@ def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, save_fig=False, show_
     est_y = est_traj[1,:].A[0]
     est_z = est_traj[2,:].A[0]
 
+    # get max and min per plot using the ground truth as reference
+    gt_x_min = np.min(gt_x)
+    gt_x_max = np.max(gt_x)
+    gt_x_dx = (gt_x_max - gt_x_min)*percent
+
+    gt_y_min = np.min(gt_y)
+    gt_y_max = np.max(gt_y)
+    gt_y_dx = (gt_y_max - gt_y_min)*percent
+
+    gt_z_min = np.min(gt_z)
+    gt_z_max = np.max(gt_z)
+    gt_z_dx = (gt_z_max - gt_z_min)*percent
+
+    # plot
     axarr[0].plot(gt_time, gt_x, color=_gt_color, label=_labels['ground_truth'])
     axarr[0].plot(est_time, est_x, label=_labels['estimated'])
     axarr[0].set_title(_labels['traj'] + ' (' + _labels['x_axis'] + ')')
     axarr[0].legend(loc='upper right')
-    gt_x_min = np.min(gt_x)
-    gt_x_max = np.max(gt_x)
-    gt_x_dx = (gt_x_max - gt_x_min)*percent
     axarr[0].set_ylim([gt_x_min - gt_x_dx, gt_x_max + gt_x_dx])
 
     axarr[1].plot(gt_time, gt_y, color=_gt_color, label=_labels['ground_truth'])
     axarr[1].plot(est_time, est_y, label=_labels['estimated'])
     axarr[1].set_title(_labels['traj'] + ' (' + _labels['y_axis'] + ')')
     axarr[1].legend(loc='upper right')
-    gt_y_min = np.min(gt_y)
-    gt_y_max = np.max(gt_y)
-    gt_y_dx = (gt_y_max - gt_y_min)*percent
     axarr[1].set_ylim([gt_y_min - gt_y_dx, gt_y_max + gt_y_dx])
 
     axarr[2].plot(gt_time, gt_z, color=_gt_color, label=_labels['ground_truth'])
     axarr[2].plot(est_time, est_z, label=_labels['estimated'])
     axarr[2].set_title(_labels['traj'] + ' (' + _labels['z_axis'] + ')')
     axarr[2].legend(loc='upper right')
-    gt_z_min = np.min(gt_z)
-    gt_z_max = np.max(gt_z)
-    gt_z_dx = (gt_z_max - gt_z_min)*percent
     axarr[2].set_ylim([gt_z_min - gt_z_dx, gt_z_max + gt_z_dx])
 
     if show_fig:

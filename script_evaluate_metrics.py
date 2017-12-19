@@ -79,17 +79,6 @@ if __name__=="__main__":
         if gt_format == 'tum_cov':
             gt_cov, est_cov = utils.associate_and_filter(gt_cov, est_cov, offset=float(args.offset), max_difference=float(args.max_difference), offset_initial=float(args.offset_initial), recommended_offset=args.recommended_offset)
 
-    # align poses
-    if args.alignment == 'manifold':
-        if gt_format == 'tum_cov':
-            gt_poses, est_poses, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
-        else:
-            gt_poses, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'horn':
-        gt_poses, est_poses, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
-    elif args.alignment == 'first':
-        gt_poses, est_poses = utils.align_trajectories_to_first(gt_poses, est_poses)
-
     # apply scale
     scale = float(args.scale)
     if args.automatic_scale:
@@ -100,6 +89,17 @@ if __name__=="__main__":
     if gt_format == 'tum_cov':
         gt_cov_   = utils.scale_dict(gt_cov, scale_factor=1, is_cov=True)
         est_cov   = utils.scale_dict(est_cov, scale_factor=scale, is_cov=True)
+
+    # align poses
+    if args.alignment == 'manifold':
+        if gt_format == 'tum_cov':
+            gt_poses, est_poses, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, cov_est=est_cov, align_gt=False)
+        else:
+            gt_poses, est_poses_align, T_align_man = utils.align_trajectories_manifold(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'horn':
+        gt_poses, est_poses, T_align_horn = utils.align_trajectories_horn(gt_poses, est_poses, align_gt=False)
+    elif args.alignment == 'first':
+        gt_poses, est_poses = utils.align_trajectories_to_first(gt_poses, est_poses)
 
     ## apply fixed transform
     #if args.gt_static_transform:
@@ -119,37 +119,31 @@ if __name__=="__main__":
     if(not args.no_metrics):
         # Compute metrics
         # ATE (Absolute trajectory error)
-        print('\nATE - Horn')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - XYZ')
 
-        print('\nATE - Horn - X')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='X')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - X')
 
-        print('\nATE - Horn - Y')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Y')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Y')
 
-        print('\nATE - Horn - Z')
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Z')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose)
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Z')
 
 
 
         # ATE (Absolute trajectory error, SE(3))
         if(args.ate_manifold):
-            print('\nATE - Manifold')
             ate_se3_error = slam_metrics.ATE_SE3(gt_poses,
                                                  est_poses,
                                                  offset=float(args.offset),
                                                  max_difference=float(args.max_difference))
-            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='ATE - Manifold')
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='ATE - Manifold')
 
         # RPE (Relative Pose Error)
         if(args.rpe):
-            print('\nRPE - %s [%s]' % (args.delta, args.delta_unit))
             rpe_error, rpe_trans_error, rpe_rot_error, rpe_distance = slam_metrics.RPE(gt_poses,
                                                                        est_poses,
                                                                        param_max_pairs=int(args.max_pairs),
@@ -158,15 +152,14 @@ if __name__=="__main__":
                                                                        param_delta_unit=args.delta_unit,
                                                                        param_offset=float(args.offset))
 
-            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)))
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)))
 
         # DDT (Drift per distance)
         if(args.ddt):
-            print('\nDDT')
             ddt = np.divide(rpe_error, rpe_distance)
-            slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose)
-            slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose)
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='DDT')
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='DDT')
 
     if(args.show_plots or args.save_plots):
         gt_data = gt_poses
@@ -194,6 +187,6 @@ if __name__=="__main__":
 
         plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
         #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
-        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+        plot_utils.plot_3d_xyz(gt_xyz, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
         #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
         #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)

@@ -264,7 +264,7 @@ def find_closest_index(L,t):
     return best
 
 def compute_scale_from_trajectories(gt_poses, est_poses):
-    # recover a list with the translations only
+    ## recover a list with the translations only
     gt_xyz  = np.matrix([gt_poses[a][0:3,3] for a in gt_poses])
     est_xyz  = np.matrix([est_poses[a][0:3,3] for a in est_poses])
 
@@ -611,9 +611,9 @@ def align_trajectories_horn(traj_gt, traj_est, verbose=False, align_gt=True, ret
 
     # alignment orientation
     rot = U*S*Vh
-
+    s = 1.0
     # alignment translation
-    trans = est_xyz.mean(1) - rot * gt_xyz.mean(1)
+    trans = est_xyz.mean(1) - s*rot * gt_xyz.mean(1)
 
     # create transformation to align ground truth
     Talign = np.eye(4, dtype=float)

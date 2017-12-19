@@ -20,7 +20,7 @@ dimension_map = {'X':   [True, False, False, False],
                  'XYZ': [True, True, True, False]
                  }
 
-def compute_statistics(err, verbose=False, variable='Translational', use_deg=True):
+def compute_statistics(err, verbose=False, variable='Translational', use_deg=True, title=''):
         """
         Computes the mean, RMSE, standard deviation, median, min and max from a vector of errors
 
@@ -47,24 +47,23 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         # Max
         stats['max'] = np.max(abs_err) # computed by column
 
-
         if verbose:
             for key in stats:
                 if variable == 'Rotational':
                     if use_deg:
-                        print(' %s %s: %f deg' % (variable, key, utils.rad_to_deg(stats[key])))
+                        print('%s %s %s [deg]: %f' % (title, variable, key, utils.rad_to_deg(stats[key])))
                     else:
-                        print(' %s %s: %f rad' % (variable, key, stats[key]))
+                        print('%s %s %s [rad]: %f' % (title, variable, key, stats[key]))
                 else:
-                    print(' %s %s: %f m' % (variable, key, stats[key]))
+                    print('%s %s %s [m]: %f' % (title, variable, key, stats[key]))
         else:
             if variable == 'Rotational':
                 if use_deg:
-                    print(' %s rmse: %f deg' % (variable, utils.rad_to_deg(stats['rmse'])))
+                    print('%s %s rmse [deg]: %f' % (title, variable, utils.rad_to_deg(stats['rmse'])))
                 else:
-                    print(' %s rmse: %f rad' % (variable, stats['rmse']))
+                    print('%s %s rmse [rad]: %f' % (title, variable, stats['rmse']))
             else:
-                print(' %s rmse: %f m' % (variable, stats['rmse']))
+                print('%s %s rmse [m]: %f' % (title, variable, stats['rmse']))
 
 
         return stats
