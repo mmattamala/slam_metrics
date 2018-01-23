@@ -670,3 +670,37 @@ def align_trajectories_to_first(traj_gt, traj_est, verbose=False):
     traj_est_aligned  = dict( [(a, np.dot(traj_est_0, traj_est[a])) for a in traj_est])
 
     return traj_gt_aligned, traj_est_aligned
+
+def get_translations_along_trajectory(traj):
+    """
+    Extracts the translation from a dictionary of poses (4x4)
+
+    Input:
+    traj -- a dictionary of a given trajectory (stamp,pose)
+
+    Output:
+    stamps -- a list with timestamps
+    transl -- a list with translations only
+
+    """
+    stamps = list(traj.keys())
+    transl  = np.matrix([traj[a][0:3,3] for a in traj])
+
+    return stamps,transl
+
+def get_orientations_along_trajectory(traj):
+    """
+    Extracts the translation from a dictionary of poses (4x4)
+
+    Input:
+    traj -- a dictionary of a given trajectory (stamp,pose)
+
+    Output:
+    stamps -- a list with timestamps
+    orient -- a list with translations only
+
+    """
+    stamps = list(traj.keys())
+    orient  = np.matrix([rotm_to_rpy(traj[a][0:3,0:3]) for a in traj])
+
+    return stamps,orient

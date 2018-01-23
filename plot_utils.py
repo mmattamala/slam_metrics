@@ -125,7 +125,7 @@ def plot_3d_xyz_with_cov(gt_traj, est_traj, gt_cov=None, est_cov=None, cov_step=
     ax.legend(loc='upper right')
     plt.show()
 
-def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, save_fig=False, show_fig=False, percent=0.5):
+def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, save_fig=False, show_fig=False, percent=0.5, fix_limits=False):
 
     fig, axarr = plt.subplots(3, sharex=True)
     fig.tight_layout(pad=2.0, w_pad=0.0, h_pad=3.0)
@@ -154,24 +154,29 @@ def plot_2d_traj_xyz(gt_time, gt_traj, est_time, est_traj, save_fig=False, show_
     gt_z_max = np.max(gt_z)
     gt_z_dx = (gt_z_max - gt_z_min)*percent
 
+    print(gt_x.shape, gt_time.shape)
+
     # plot
     axarr[0].plot(gt_time, gt_x, color=_gt_color, label=_labels['ground_truth'])
     axarr[0].plot(est_time, est_x, label=_labels['estimated'])
     axarr[0].set_title(_labels['traj'] + ' (' + _labels['x_axis'] + ')')
     axarr[0].legend(loc='upper right')
-    axarr[0].set_ylim([gt_x_min - gt_x_dx, gt_x_max + gt_x_dx])
+    if fix_limits:
+        axarr[0].set_ylim([gt_x_min - gt_x_dx, gt_x_max + gt_x_dx])
 
     axarr[1].plot(gt_time, gt_y, color=_gt_color, label=_labels['ground_truth'])
     axarr[1].plot(est_time, est_y, label=_labels['estimated'])
     axarr[1].set_title(_labels['traj'] + ' (' + _labels['y_axis'] + ')')
     axarr[1].legend(loc='upper right')
-    axarr[1].set_ylim([gt_y_min - gt_y_dx, gt_y_max + gt_y_dx])
+    if fix_limits:
+        axarr[1].set_ylim([gt_y_min - gt_y_dx, gt_y_max + gt_y_dx])
 
     axarr[2].plot(gt_time, gt_z, color=_gt_color, label=_labels['ground_truth'])
     axarr[2].plot(est_time, est_z, label=_labels['estimated'])
     axarr[2].set_title(_labels['traj'] + ' (' + _labels['z_axis'] + ')')
     axarr[2].legend(loc='upper right')
-    axarr[2].set_ylim([gt_z_min - gt_z_dx, gt_z_max + gt_z_dx])
+    if fix_limits:
+        axarr[2].set_ylim([gt_z_min - gt_z_dx, gt_z_max + gt_z_dx])
 
     if show_fig:
         plt.show()

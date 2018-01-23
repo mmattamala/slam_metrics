@@ -10,6 +10,7 @@ It is based on the TUM scripts
 import sys
 import numpy as np
 import argparse
+import csv
 import utils
 import plot_utils
 import slam_metrics
@@ -47,6 +48,8 @@ if __name__=="__main__":
     parser.add_argument('--verbose', help='print all evaluation data (otherwise, only the RMSE absolute will be printed)', action='store_true')
     parser.add_argument('--ignore_timestamp_match', help='ignores the timestamp to associate the sequences', action='store_true')
     parser.add_argument('--recommended_offset', help='ignores the given offset and uses the recommended offset obtained from the sequences', action='store_true')
+    parser.add_argument('--save_translations', help='saves the translations in a csv file', action='store_true')
+    parser.add_argument('--save_statistics', help='saves the statistics summary in a csv file', action='store_true')
 
     #parser.add_argument('--save', help='save aligned second trajectory to disk (format: stamp2 x2 y2 z2)')
     #parser.add_argument('--save_associations', help='save associated first and aligned second trajectory to disk (format: stamp1 x1 y1 z1 stamp2 x2 y2 z2)')
@@ -120,16 +123,16 @@ if __name__=="__main__":
         # Compute metrics
         # ATE (Absolute trajectory error)
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses)
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - XYZ')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - XYZ', save=args.save_statistics)
 
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='X')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - X')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - X', save=args.save_statistics)
 
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Y')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Y')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Y', save=args.save_statistics)
 
         ate_horn_error = slam_metrics.ATE_Horn(gt_poses, est_poses, axes='Z')
-        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Z')
+        slam_metrics.compute_statistics(np.linalg.norm(ate_horn_error, axis=0), verbose=args.verbose, title='ATE - Horn - Z', save=args.save_statistics)
 
 
 
@@ -139,8 +142,8 @@ if __name__=="__main__":
                                                  est_poses,
                                                  offset=float(args.offset),
                                                  max_difference=float(args.max_difference))
-            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='ATE - Manifold')
-            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='ATE - Manifold')
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='ATE - Manifold', save=args.save_statistics)
+            slam_metrics.compute_statistics(np.linalg.norm(ate_se3_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='ATE - Manifold', save=args.save_statistics)
 
         # RPE (Relative Pose Error)
         if(args.rpe):
@@ -152,41 +155,39 @@ if __name__=="__main__":
                                                                        param_delta_unit=args.delta_unit,
                                                                        param_offset=float(args.offset))
 
-            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)))
-            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)))
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)), save=args.save_statistics)
+            slam_metrics.compute_statistics(np.linalg.norm(rpe_error[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title=('RPE - %s [%s]' % (args.delta, args.delta_unit)), save=args.save_statistics)
 
         # DDT (Drift per distance)
         if(args.ddt):
             ddt = np.divide(rpe_error, rpe_distance)
-            slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='DDT')
-            slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='DDT')
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[0:3,:], axis=0), variable='Translational', verbose=args.verbose, title='DDT', save=args.save_statistics)
+            slam_metrics.compute_statistics(np.linalg.norm(ddt[3:6,:], axis=0), variable='Rotational', verbose=args.verbose, title='DDT', save=args.save_statistics)
 
-    if(args.show_plots or args.save_plots):
-        gt_data = gt_poses
-        est_data = est_poses
+    #if(args.show_plots or args.save_plots):
+    gt_data = gt_poses
+    est_data = est_poses
 
-        gt_stamps = list(gt_data.keys())
-        gt_stamps.sort()
-        est_stamps = list(est_data.keys())
-        est_stamps.sort()
+    gt_stamps, gt_xyz      = utils.get_translations_along_trajectory(gt_poses)
+    gt_stamps, gt_angles   = utils.get_orientations_along_trajectory(gt_poses)
+    est_stamps, est_xyz    = utils.get_translations_along_trajectory(est_poses)
+    est_stamps, est_angles = utils.get_orientations_along_trajectory(est_poses)
 
-        #gt_t0 = gt_stamps[0]
-        #est_t0 = est_stamps[0]
+    if args.save_translations:
+        with open('translations_gt.csv', 'w') as f:
+            wr = csv.writer(f)
+            wr.writerow(['time', 'x', 'y', 'z'])
+            for t,d in zip(gt_stamps,gt_xyz):
+                wr.writerow([t, d[0,0], d[0,1], d[0,2]])
+        with open('translations_est.csv', 'w') as f:
+            wr = csv.writer(f)
+            wr.writerow(['time', 'x', 'y', 'z'])
+            for t,d in zip(est_stamps,est_xyz):
+                wr.writerow([t, d[0,0], d[0,1], d[0,2]])
 
-        #gt_T0 = np.linalg.inv(gt_data[gt_t0])
-        #est_T0 = np.linalg.inv(est_data[est_t0])
-
-        #gt_data  = dict( [(a, np.dot(gt_T0, gt_data[a])) for a in gt_data])
-        #est_data  = dict( [(a, np.dot(est_T0, est_data[a])) for a in est_data])
-
-        gt_xyz  = np.matrix([gt_data[a][0:3,3] for a in gt_data]).transpose()
-        est_xyz  = np.matrix([est_data[a][0:3,3] for a in est_data]).transpose()
-
-        gt_angles   = np.matrix([utils.rotm_to_rpy(gt_data[a][0:3,0:3]) for a in gt_data]).transpose()
-        est_angles  = np.matrix([utils.rotm_to_rpy(est_data[a][0:3,0:3]) for a in est_data]).transpose()
-
-        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz, est_stamps, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
-        #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
-        plot_utils.plot_3d_xyz(gt_xyz, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
-        #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
-        #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)
+    if args.show_plots or args.save_plots:
+        plot_utils.plot_2d_traj_xyz(gt_stamps, gt_xyz.transpose(), est_stamps, est_xyz.transpose(), show_fig=args.show_plots, save_fig=args.save_plots)
+    #plot_utils.plot_2d_traj_xyz(gt_stamps, gt_angles, est_stamps, est_angles)
+    #plot_utils.plot_3d_xyz(gt_xyz, est_xyz, show_fig=args.show_plots, save_fig=args.save_plots)
+    #plot_utils.plot_3d_xyz_with_cov(gt_data, est_data, gt_cov=gt_cov, est_cov=est_cov)
+    #plot_utils.plot_3d_xyz(gt_xyz, est_xyz)

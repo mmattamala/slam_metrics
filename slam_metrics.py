@@ -7,6 +7,7 @@ Implementation of main metrics used in Visual SLAM
 
 import random
 import math
+import csv
 import numpy as np
 import SE3UncertaintyLib as SE3Lib
 import utils
@@ -20,7 +21,7 @@ dimension_map = {'X':   [True, False, False, False],
                  'XYZ': [True, True, True, False]
                  }
 
-def compute_statistics(err, verbose=False, variable='Translational', use_deg=True, title=''):
+def compute_statistics(err, verbose=False, variable='Translational', use_deg=True, title='', save=False):
         """
         Computes the mean, RMSE, standard deviation, median, min and max from a vector of errors
 
@@ -28,6 +29,7 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
         M is the number of components by sample (M=3 if SO(3), M=6 if SE(3)). N is the number of samples.
 
         """
+
         stats = {}
 
         abs_err = np.fabs(err)
@@ -65,6 +67,13 @@ def compute_statistics(err, verbose=False, variable='Translational', use_deg=Tru
             else:
                 print('%s %s rmse [m]: %f' % (title, variable, stats['rmse']))
 
+        if save:
+            filename = 'statistics-%s-%s.csv' % (title.replace(' ',''), variable.replace(' ',''))
+            print('saving statistics file: %s' % filename)
+            with open(filename,'w') as f:
+                w = csv.writer(f)
+                w.writerow(stats.keys())
+                w.writerow(stats.values())
 
         return stats
 
