@@ -7,7 +7,7 @@ I recommend you the following (as much better!) alternatives:
 
 Link: https://github.com/MichaelGrupp/evo
 
-I used this for my master thesis and is pretty easy to use. Some plots are different that the ones you may encounter in other papers, but has a lot of very useful tools, such as batch processing of trajectories.
+I used this for my master thesis and is pretty easy to use. Some plots are different that the ones you may find in other papers, but it has a lot of very useful tools, such as batch processing of trajectories.
 
 </br>
 
